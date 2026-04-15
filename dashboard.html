@@ -911,9 +911,11 @@ if (!HL_TOKEN) window.location.href = 'index.html';
     <label>Categoria</label>
     <div class="filter-chips" id="filter-cat">
       <span class="chip active" data-filter="cat" data-val="all">Todas</span>
+      <span class="chip" data-filter="cat" data-val="Equip. Rede">Equip. Rede</span>
       <span class="chip" data-filter="cat" data-val="ONT">ONT</span>
       <span class="chip" data-filter="cat" data-val="Mesh">Mesh</span>
       <span class="chip" data-filter="cat" data-val="Switch">Switch</span>
+      <span class="chip" data-filter="cat" data-val="Ativo">Ativos</span>
     </div>
   </div>
 
@@ -1049,8 +1051,8 @@ if (!HL_TOKEN) window.location.href = 'index.html';
       <button class="tab-btn" onclick="showTab('tab-summary-year', this)">
         Por Ano
       </button>
-      <button class="tab-btn" onclick="showTab('tab-alerts', this)">
-        ⚠ Pendências <span class="tab-count" style="background:rgba(239,68,68,0.2);color:var(--red)">5</span>
+      <button class="tab-btn" onclick="showTab('tab-alerts', this); loadPendings()">
+        ⚠ Pendências <span class="tab-count" id="cnt-pending" style="background:rgba(239,68,68,0.2);color:var(--red)">—</span>
       </button>
     </div>
 
@@ -1074,6 +1076,7 @@ if (!HL_TOKEN) window.location.href = 'index.html';
               <th onclick="sortTable('all',7)" data-idx="7">Categoria</th>
               <th onclick="sortTable('all',8)" data-idx="8">Modelo</th>
               <th>Status</th>
+              <th>NF</th>
             </tr>
           </thead>
           <tbody id="tbody-all"></tbody>
@@ -1150,53 +1153,8 @@ if (!HL_TOKEN) window.location.href = 'index.html';
 
     <!-- ALERTS -->
     <div id="tab-alerts" class="tab-pane">
-      <div style="display:grid;gap:12px">
-        <div class="alert-item">
-          <div class="alert-icon red">⚠</div>
-          <div class="alert-body">
-            <div class="alert-nf">NF 16746 · 28/10/2025 · Hilink · R$62.866,56</div>
-            <div class="alert-msg">Nota fiscal não entregue — arquivo: imagem de WhatsApp sem NFe original</div>
-            <div class="alert-action">→ Solicitar NF original à GMI Distribuidora (400 unidades XC220-G3 XPON)</div>
-          </div>
-          <span class="badge badge-alert">NF Pendente</span>
-        </div>
-        <div class="alert-item">
-          <div class="alert-icon red">⚠</div>
-          <div class="alert-body">
-            <div class="alert-nf">NF 18028 · 28/01/2026 · Hilink · R$69.073,75</div>
-            <div class="alert-msg">Nota fiscal não entregue — arquivo: imagem de WhatsApp sem NFe original</div>
-            <div class="alert-action">→ Solicitar NF original à GMI Distribuidora (439 unidades XC220-G3 XPON)</div>
-          </div>
-          <span class="badge badge-alert">NF Pendente</span>
-        </div>
-        <div class="alert-item">
-          <div class="alert-icon amber">⚡</div>
-          <div class="alert-body">
-            <div class="alert-nf">NF 17048 · 17/11/2025 · Hilink · R$254,11</div>
-            <div class="alert-msg">Classificação incorreta — NF mista: contém AP, Mesh e ONT AX3000. Registrado como "61 ONTs a R$152,40"</div>
-            <div class="alert-action">→ Reclassificar no controle financeiro: separar itens da NF mista</div>
-          </div>
-          <span class="badge badge-warn">Reclassificar</span>
-        </div>
-        <div class="alert-item">
-          <div class="alert-icon amber">+</div>
-          <div class="alert-body">
-            <div class="alert-nf">NF 14343 · 16/05/2025 · Hilink · R$30.790,14</div>
-            <div class="alert-msg">Item secundário não registrado — NF contém 1 unidade ONT XX530V AX3000 a R$267,27 além das 200 ONTs XC220-G3</div>
-            <div class="alert-action">→ Registrar item separado no controle (impact: +R$267,27 no investimento total)</div>
-          </div>
-          <span class="badge badge-warn">Item Faltante</span>
-        </div>
-        <div class="alert-item">
-          <div class="alert-icon blue">✓</div>
-          <div class="alert-body">
-            <div class="alert-nf">NF 13165 · 11/03/2025 · Hilink · R$16.876,87</div>
-            <div class="alert-msg">Correção aplicada — preço unitário corrigido de R$153,67 para R$168,77 (NF original confirma)</div>
-            <div class="alert-action">→ Total corrigido de R$15.367,00 para R$16.876,87 · Diferença: +R$1.509,87</div>
-          </div>
-          <span class="badge badge-corrected">Corrigida</span>
-        </div>
-      </div>
+      <div id="pending-loading" style="text-align:center;padding:32px;color:var(--text3);font-size:13px">Clique na aba para carregar pendências…</div>
+      <div id="pending-list" style="flex-direction:column;gap:0;display:none"></div>
     </div>
   </div>
 
@@ -1257,7 +1215,10 @@ async function loadFromAPI() {
           unitPrice: Number(n.unitPrice),
           total:     Number(n.total),
           cat:       n.cat,
+          subcat:    n.subcat || '',
           model:     n.model || '—',
+          pendingStatus: n.pendingStatus || '',
+          driveUrl:  n.driveUrl || '',
           alerts:    n.alerts ? String(n.alerts).split(',').filter(Boolean) : []
         });
       });
@@ -1283,7 +1244,12 @@ function applyFilters(data) {
     const yr = new Date(r.date).getFullYear();
     if (filters.year !== "all" && yr !== parseInt(filters.year)) return false;
     if (filters.buyer !== "all" && r.buyer !== filters.buyer) return false;
-    if (filters.cat !== "all" && r.cat !== filters.cat) return false;
+    if (filters.cat !== "all") {
+      // match category or subcategory
+      const catMatch = r.cat === filters.cat || r.subcat === filters.cat || 
+        (filters.cat === 'Equip. Rede' && r.cat === 'Equip. Rede');
+      if (!catMatch) return false;
+    }
     if (r.unitPrice > filters.maxPrice) return false;
     return true;
   });
@@ -1297,7 +1263,14 @@ function getFiltered() { return applyFilters(RAW); }
 const fmt = n => n.toLocaleString('pt-BR', { style:'currency', currency:'BRL', minimumFractionDigits:2 });
 const fmtN = n => n.toLocaleString('pt-BR');
 const fmtPct = n => (n >= 0 ? '+' : '') + n.toFixed(1) + '%';
-const fmtDate = s => { const d = new Date(s+'T12:00:00'); return d.toLocaleDateString('pt-BR'); };
+const fmtDate = s => {
+  if (!s) return '—';
+  try {
+    const d = new Date(s + 'T12:00:00');
+    if (isNaN(d.getTime())) return s; // return raw if unparseable
+    return d.toLocaleDateString('pt-BR');
+  } catch(e) { return s || '—'; }
+};
 
 function alertBadge(alerts) {
   if (!alerts || !alerts.length) return '<span class="badge badge-ok">OK</span>';
@@ -1310,9 +1283,15 @@ function alertBadge(alerts) {
   return alerts.map(a => map[a] || '').join(' ');
 }
 
-function catBadge(cat) {
-  const m = { ONT:'badge-ont', Mesh:'badge-mesh', Switch:'badge-switch' };
-  return `<span class="badge ${m[cat]||''}">${cat}</span>`;
+function catBadge(cat, subcat) {
+  // Use subcat if available and cat is Equip. Rede
+  const display = (cat === 'Equip. Rede' && subcat) ? subcat : cat;
+  const m = { 
+    'ONT':'badge-ont', 'Mesh':'badge-mesh', 'Switch':'badge-switch',
+    'Equip. Rede':'badge-ont', 'Acessório':'badge-switch',
+    'Ativo':'badge-asset', 'Veículo':'badge-asset', 'Moto':'badge-asset'
+  };
+  return `<span class="badge ${m[display]||m[cat]||''}">${display}</span>`;
 }
 
 function priceClass(p) {
@@ -1592,7 +1571,7 @@ function renderTableAll() {
 
   const tbody = document.getElementById('tbody-all');
   if (!rows.length) {
-    tbody.innerHTML = '<tr><td colspan="10" class="empty-state">Nenhuma NF encontrada com os filtros aplicados.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="11" class="empty-state">Nenhuma NF encontrada com os filtros aplicados.</td></tr>';
     return;
   }
 
@@ -1605,9 +1584,16 @@ function renderTableAll() {
       <td class="num">${fmtN(r.qty)}</td>
       <td class="num ${r.cat==='ONT' ? priceClass(r.unitPrice) : ''}">${fmt(r.unitPrice)}</td>
       <td class="num">${fmt(r.total)}</td>
-      <td>${catBadge(r.cat)}</td>
+      <td>${catBadge(r.cat, r.subcat)}</td>
       <td style="color:var(--text2);font-size:11px;max-width:200px;overflow:hidden;text-overflow:ellipsis">${r.model}</td>
-      <td>${alertBadge(r.alerts)}</td>
+      <td>
+        ${alertBadge(r.alerts)}
+        ${r.pendingStatus === 'Aberta' ? '<span class="badge-pending">⚠</span>' : ''}
+      </td>
+      <td>${r.driveUrl
+        ? `<a href="${r.driveUrl}" target="_blank" style="background:var(--blue);color:#fff;border-radius:6px;padding:4px 10px;font-size:10px;font-weight:600;text-decoration:none;white-space:nowrap">📄 Ver</a>`
+        : '<span style="font-size:10px;color:var(--text3)">—</span>'
+      }</td>
     </tr>
   `).join('');
 }
@@ -1993,7 +1979,8 @@ function populateForm(data) {
 
   // Auto-save if all required fields are present
   const nf    = document.getElementById('f-nf').value.trim();
-  const date  = document.getElementById('f-date').value;
+  const dateRaw = document.getElementById('f-date').value;
+  const date = dateRaw && !isNaN(new Date(dateRaw).getTime()) ? dateRaw : '';
   const buyer = document.getElementById('f-buyer').value;
   const qty   = parseInt(document.getElementById('f-qty').value);
   const unitP = parseFloat(document.getElementById('f-unit').value);
@@ -2053,15 +2040,21 @@ async function autoSave() {
       const resp = await fetch(API_URL, {
         method:'POST',
         headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ action:'addNF', token: HL_TOKEN, nf: newRow })
+        body: JSON.stringify({
+          action:'addNF', token: HL_TOKEN, nf: newRow,
+          fileB64:  uploadState.fileB64,
+          fileMime: uploadState.fileMime,
+          fileName: uploadState.fileName
+        })
       });
       const result = await resp.json();
       if (!result.success) { alert('Erro ao salvar no servidor: ' + (result.error||'Tente novamente')); return; }
+      if (result.driveUrl) newRow.driveUrl = result.driveUrl;
     } catch(e) { alert('Falha de conexão com a API. NF salva localmente.'); }
   }
   RAW.push(newRow);
   RAW.sort((a,b) => a.date.localeCompare(b.date));
-  sessionNFs.push({ ...newRow, fileB64: uploadState.fileB64, fileMime: uploadState.fileMime, fileName: uploadState.fileName });
+  sessionNFs.push({ ...newRow, fileB64: uploadState.fileB64, fileMime: uploadState.fileMime, fileName: uploadState.fileName, driveUrl: newRow.driveUrl||'' });
   document.getElementById('data-status').textContent = RAW.length + ' NFs · última: ' + nf;
   renderAll();
   renderSavedNFsList();
@@ -2083,6 +2076,7 @@ async function autoSave() {
       <div style="display:flex;gap:10px;justify-content:center">
         <button onclick="resetUploadModal()" style="background:var(--blue);color:#fff;border:none;border-radius:8px;padding:9px 22px;font-size:13px;font-weight:600;cursor:pointer;font-family:var(--font-display)">+ Cadastrar outra NF</button>
         <button onclick="closeUploadModal()" style="background:var(--surface2);color:var(--text2);border:1px solid var(--border);border-radius:8px;padding:9px 20px;font-size:13px;cursor:pointer;font-family:var(--font-display)">Fechar</button>
+        \${newRow.driveUrl ? \`<a href="\${newRow.driveUrl}" target="_blank" style="background:transparent;color:var(--blue);border:1px solid var(--blue);border-radius:8px;padding:9px 16px;font-size:13px;text-decoration:none;font-family:var(--font-display)">📄 Ver no Drive</a>\` : ''}
       </div>
     </div>`;
 }
@@ -2116,7 +2110,13 @@ function closeViewer() {
 
 function viewSavedNF(idx) {
   const nf = sessionNFs[idx];
-  if (!nf || !nf.fileB64) { alert('Arquivo não disponível.'); return; }
+  if (!nf) { alert('NF não encontrada.'); return; }
+  // Prefer Drive URL (permanent), fall back to local base64
+  if (nf.driveUrl) {
+    window.open(nf.driveUrl, '_blank');
+    return;
+  }
+  if (!nf.fileB64) { alert('Arquivo não disponível nesta sessão.'); return; }
   uploadState = { fileB64: nf.fileB64, fileMime: nf.fileMime, fileName: nf.fileName };
   document.getElementById('viewer-title').textContent = 'NF ' + nf.nf + ' · ' + nf.fileName;
   openViewer();
@@ -2140,10 +2140,16 @@ async function confirmAndSave() {
       const resp = await fetch(API_URL, {
         method:'POST',
         headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ action:'addNF', token: HL_TOKEN, nf: newRow })
+        body: JSON.stringify({
+          action:'addNF', token: HL_TOKEN, nf: newRow,
+          fileB64:  uploadState.fileB64,
+          fileMime: uploadState.fileMime,
+          fileName: uploadState.fileName
+        })
       });
       const result = await resp.json();
       if (!result.success) { alert('Erro ao salvar: ' + (result.error||'Tente novamente')); return; }
+      if (result.driveUrl) newRow.driveUrl = result.driveUrl;
     } catch(e) { alert('Falha de conexão. NF salva localmente.'); }
   }
   RAW.push(newRow);
@@ -2190,13 +2196,123 @@ function renderSavedNFsList() {
         <div style="font-size:13px;font-weight:700;color:var(--text)">NF ${nf.nf} · ${nf.buyer}</div>
         <div style="font-size:11px;color:var(--text3);font-family:var(--font-mono)">${fmtDate(nf.date)} · ${nf.qty} un · ${fmt(nf.unitPrice)}/un · ${nf.cat}</div>
       </div>
-      <button onclick="viewSavedNF(${i})" style="background:var(--surface);border:1px solid var(--border);border-radius:7px;padding:5px 12px;font-size:11px;font-weight:600;color:var(--text2);cursor:pointer;font-family:var(--font-display);white-space:nowrap">Ver NF</button>
+      <button onclick="viewSavedNF(${i})" style="background:${nf.driveUrl?'var(--blue)':'var(--surface)'};border:1px solid ${nf.driveUrl?'var(--blue)':'var(--border)'};color:${nf.driveUrl?'#fff':'var(--text2)'};border-radius:7px;padding:5px 12px;font-size:11px;font-weight:600;cursor:pointer;font-family:var(--font-display);white-space:nowrap">${nf.driveUrl?'📄 Ver no Drive':'Ver NF'}</button>
     </div>`).join('');
 }
 
 document.getElementById('upload-overlay').addEventListener('click', e => { if(e.target===document.getElementById('upload-overlay')) closeUploadModal(); });
 document.getElementById('viewer-overlay').addEventListener('click', e => { if(e.target===document.getElementById('viewer-overlay')) closeViewer(); });
 document.addEventListener('keydown', e => { if(e.key==='Escape'){closeUploadModal();closeViewer();} });
+
+
+// ── Pendências dinâmicas ──────────────────────────────────────
+let pendingsLoaded = false;
+async function loadPendings() {
+  if (pendingsLoaded) return;
+  const loadEl = document.getElementById('pending-loading');
+  const listEl = document.getElementById('pending-list');
+  if (!loadEl) return;
+  loadEl.textContent = 'Carregando pendências…';
+  try {
+    const qs = new URLSearchParams({ action:'getPending', token: HL_TOKEN }).toString();
+    const resp = await fetch(API_URL + '?' + qs);
+    const data = await resp.json();
+    if (!data.success) throw new Error(data.error);
+    pendingsLoaded = true;
+    renderPendings(data.items);
+  } catch(e) {
+    loadEl.textContent = 'Erro ao carregar: ' + e.message;
+  }
+}
+
+const PENDING_ICONS = {
+  'NF Pendente': { icon:'⚠', cls:'red' },
+  'Reclassificar': { cls:'amber', icon:'⚡' },
+  'Item Faltante': { cls:'amber', icon:'+' },
+  'Qtd a verificar': { cls:'blue', icon:'?' },
+  'Número a confirmar': { cls:'blue', icon:'?' },
+  'nf_corrigida': { cls:'blue', icon:'✓' },
+};
+const STATUS_COLORS = {
+  'Aberta': 'var(--red)',
+  'Em andamento': 'var(--amber)',
+  'Resolvida': 'var(--green)'
+};
+
+function renderPendings(items) {
+  const loadEl = document.getElementById('pending-loading');
+  const listEl = document.getElementById('pending-list');
+  loadEl.style.display = 'none';
+  listEl.style.display = 'flex';
+  const cntEl = document.getElementById('cnt-pending');
+  const open = items.filter(i => i.status !== 'Resolvida').length;
+  if (cntEl) cntEl.textContent = open;
+
+  if (!items.length) {
+    listEl.innerHTML = '<div style="text-align:center;padding:32px;color:var(--text3);font-size:13px">Nenhuma pendência registrada.</div>';
+    return;
+  }
+  listEl.innerHTML = items.map((item, idx) => {
+    const info = PENDING_ICONS[item.type] || { icon:'•', cls:'blue' };
+    const statusColor = STATUS_COLORS[item.status] || 'var(--text3)';
+    const isResolved = item.status === 'Resolvida';
+    return `
+    <div class="alert-item" style="${isResolved ? 'opacity:0.6' : ''}">
+      <div class="alert-icon ${info.cls}">${info.icon}</div>
+      <div class="alert-body" style="flex:1">
+        <div class="alert-nf">NF ${item.nf} · ${item.type}</div>
+        <div class="alert-msg">${item.description}</div>
+        ${item.obs ? `<div class="alert-action">→ ${item.obs}</div>` : ''}
+        ${item.resolvedAt ? `<div style="font-size:10px;color:var(--green);margin-top:3px">Resolvida em ${fmtDate(item.resolvedAt.split('T')[0])}</div>` : ''}
+        <!-- Workflow inline -->
+        <div id="pend-form-${idx}" style="display:none;margin-top:10px;display:none">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+            <div>
+              <div style="font-size:10px;color:var(--text3);text-transform:uppercase;font-weight:600;margin-bottom:4px">Status</div>
+              <select id="ps-${idx}" class="form-input" style="font-size:12px">
+                <option ${item.status==='Aberta'?'selected':''}>Aberta</option>
+                <option ${item.status==='Em andamento'?'selected':''}>Em andamento</option>
+                <option ${item.status==='Resolvida'?'selected':''}>Resolvida</option>
+              </select>
+            </div>
+            <div>
+              <div style="font-size:10px;color:var(--text3);text-transform:uppercase;font-weight:600;margin-bottom:4px">Responsável</div>
+              <input id="pr-${idx}" class="form-input" type="text" placeholder="Nome" value="${item.responsible||''}" style="font-size:12px">
+            </div>
+          </div>
+          <input id="po-${idx}" class="form-input" type="text" placeholder="Observação / ação tomada" value="${item.obs||''}" style="font-size:12px;margin-bottom:8px;width:100%">
+          <button onclick="savePending('${item.nf}',${idx})" style="background:var(--blue);color:#fff;border:none;border-radius:7px;padding:6px 14px;font-size:11px;font-weight:600;cursor:pointer;font-family:var(--font-display)">Salvar</button>
+          <span id="psaved-${idx}" style="font-size:11px;color:var(--green);margin-left:8px;display:none">✓ Salvo</span>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0">
+        <span style="font-size:10px;font-weight:700;padding:3px 10px;border-radius:20px;background:rgba(0,0,0,0.06);color:${statusColor}">${item.status||'Aberta'}</span>
+        <button onclick="togglePendForm(${idx})" style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:4px 10px;font-size:10px;color:var(--text2);cursor:pointer;font-family:var(--font-display)">Editar</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function togglePendForm(idx) {
+  const el = document.getElementById('pend-form-' + idx);
+  if (el) el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+
+async function savePending(nf, idx) {
+  const status = document.getElementById('ps-' + idx)?.value;
+  const responsible = document.getElementById('pr-' + idx)?.value;
+  const obs = document.getElementById('po-' + idx)?.value;
+  try {
+    await fetch(API_URL, {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ action:'updatePending', token:HL_TOKEN, nf, status, responsible, obs })
+    });
+    const saved = document.getElementById('psaved-' + idx);
+    if (saved) { saved.style.display='inline'; setTimeout(()=>saved.style.display='none', 2500); }
+    pendingsLoaded = false; // force reload next time
+  } catch(e) { alert('Erro ao salvar: ' + e.message); }
+}
 
 // ─────────────────────────────────────────────
 // INIT
