@@ -690,10 +690,11 @@ if (!HL_TOKEN) window.location.href = 'index.html';
           <button onclick="toggleApiKey()" id="btn-toggle-key" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:7px 12px;font-size:11px;color:var(--text2);cursor:pointer;font-family:var(--font-display);white-space:nowrap">👁 Ver</button>
         </div>
         <div style="font-size:10px;color:var(--text3);margin-top:5px">
-          Chave exclusiva para leitura de NFs. Fica apenas nesta sessão, nunca é salva. Crie em
-          <a href="https://console.anthropic.com/settings/keys" target="_blank" style="color:var(--blue);text-decoration:none">console.anthropic.com</a>
+          Chave exclusiva para leitura automática de NFs. Fica apenas nesta sessão, nunca é salva.
+          Crie em <a href="https://console.anthropic.com/settings/keys" target="_blank" style="color:var(--blue);text-decoration:none">console.anthropic.com</a>
           · Custo estimado: &lt; R$0,05 por NF.
         </div>
+        <div id="key-warning" style="display:none;font-size:11px;color:var(--red);margin-top:5px;font-weight:600">⚠ Insira sua chave antes de fazer upload.</div>
       </div>
       <div id="drop-zone"
         ondragover="event.preventDefault();this.classList.add('dz-hover')"
@@ -1305,7 +1306,7 @@ function priceClass(p) {
 // ─────────────────────────────────────────────
 function updateKPIs() {
   const d = getFiltered();
-  const ont = d.filter(r => r.cat === 'ONT');
+  const ont = d.filter(r => (r.cat === 'ONT' || r.subcat === 'ONT'));
   const totalInvest = d.reduce((s,r) => s+r.total, 0);
   const ontInvest = ont.reduce((s,r) => s+r.total, 0);
   const ontUnits = ont.reduce((s,r) => s+r.qty, 0);
@@ -1372,7 +1373,7 @@ function makeChart(id, config) {
 }
 
 function buildPriceLine() {
-  const d = getFiltered().filter(r => r.cat === 'ONT').sort((a,b) => a.date.localeCompare(b.date));
+  const d = getFiltered().filter(r => (r.cat === 'ONT' || r.subcat === 'ONT')).sort((a,b) => a.date.localeCompare(b.date));
   const labels = d.map(r => 'NF '+r.nf);
   const prices = d.map(r => r.unitPrice);
   const colors = prices.map(p => p > 160 ? '#ef4444' : '#10b981');
@@ -1468,7 +1469,7 @@ function buildMonthly() {
   const yr = filters.year === 'all' ? 2025 : parseInt(filters.year);
   document.getElementById('badge-monthly').textContent = yr;
   const months = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
-  const d = RAW.filter(r => new Date(r.date).getFullYear() === yr && r.cat === 'ONT');
+  const d = RAW.filter(r => new Date(r.date).getFullYear() === yr && (r.cat === 'ONT' || r.subcat === 'ONT'));
   const vals = months.map((_,i) => d.filter(r => new Date(r.date).getMonth() === i).reduce((s,r) => s+r.qty, 0));
 
   makeChart('chartMonthly', {
@@ -1602,7 +1603,7 @@ function renderTableAll() {
 // TABLE: ABOVE R$160
 // ─────────────────────────────────────────────
 function renderTableAbove() {
-  const d = getFiltered().filter(r => r.cat === 'ONT' && r.unitPrice > 160)
+  const d = getFiltered().filter(r => (r.cat === 'ONT' || r.subcat === 'ONT') && r.unitPrice > 160)
     .sort((a,b) => b.unitPrice - a.unitPrice);
 
   document.getElementById('cnt-above').textContent = d.length;
@@ -1858,7 +1859,12 @@ function processFile(file) {
   const allowed = ['application/pdf','image/jpeg','image/jpg','image/png'];
   if (!allowed.includes(file.type)) { alert('Formato não suportado. Use PDF, JPG ou PNG.'); return; }
   if (file.size > 20 * 1024 * 1024) { alert('Arquivo muito grande. Máximo 20MB.'); return; }
-  if (!getApiKey()) { alert('Insira sua chave de API Anthropic antes de fazer o upload.'); return; }
+  if (!getApiKey()) {
+    const w = document.getElementById('key-warning');
+    if (w) { w.style.display = 'block'; setTimeout(() => w.style.display = 'none', 4000); }
+    document.getElementById('anthropic-api-key')?.focus();
+    return;
+  }
   const reader = new FileReader();
   reader.onload = (ev) => {
     const b64 = ev.target.result.split(',')[1];
@@ -1942,9 +1948,15 @@ Responda APENAS com o JSON, sem markdown, sem explicações.`;
     document.getElementById('extract-loading').style.display = 'none';
     document.getElementById('extract-error').style.display = 'block';
     let msg = err.message || 'Falha na leitura';
-    if (msg.includes('401') || msg.toLowerCase().includes('api key')) msg = 'Chave de API inválida. Verifique e tente novamente.';
-    if (msg.includes('429')) msg = 'Limite de requisições atingido. Aguarde alguns instantes.';
-    if (msg.includes('credit') || msg.includes('quota')) msg = 'Créditos insuficientes na conta Anthropic.';
+    if (msg.includes('Failed to fetch') || msg.includes('NetworkError') || msg.includes('CORS')) {
+      msg = 'Erro de conexão com a API Anthropic. Verifique se a chave foi inserida corretamente no campo acima.';
+    } else if (msg.includes('401') || msg.toLowerCase().includes('api key') || msg.includes('invalid x-api-key')) {
+      msg = 'Chave de API inválida. Verifique e tente novamente.';
+    } else if (msg.includes('429')) {
+      msg = 'Limite de requisições atingido. Aguarde alguns instantes.';
+    } else if (msg.includes('credit') || msg.includes('quota')) {
+      msg = 'Créditos insuficientes na conta Anthropic.';
+    }
     document.getElementById('err-msg').textContent = msg;
   }
 }
