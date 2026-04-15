@@ -681,21 +681,22 @@ if (!HL_TOKEN) window.location.href = 'index.html';
     </div>
 
     <!-- Upload Zone -->
-    <div id="upload-section" style="padding:24px 28px">
-      <!-- Anthropic API Key -->
-      <div style="margin-bottom:16px">
-        <div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.7px;margin-bottom:6px">Chave de API Anthropic</div>
-        <div style="display:flex;gap:8px;align-items:center">
-          <input class="form-input" id="anthropic-api-key" type="password" placeholder="sk-ant-..." style="flex:1;font-family:var(--font-mono);font-size:12px" autocomplete="off">
-          <button onclick="toggleApiKey()" id="btn-toggle-key" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:7px 12px;font-size:11px;color:var(--text2);cursor:pointer;font-family:var(--font-display);white-space:nowrap">👁 Ver</button>
-        </div>
-        <div style="font-size:10px;color:var(--text3);margin-top:5px">
-          Chave exclusiva para leitura automática de NFs. Fica apenas nesta sessão, nunca é salva.
-          Crie em <a href="https://console.anthropic.com/settings/keys" target="_blank" style="color:var(--blue);text-decoration:none">console.anthropic.com</a>
-          · Custo estimado: &lt; R$0,05 por NF.
-        </div>
-        <div id="key-warning" style="display:none;font-size:11px;color:var(--red);margin-top:5px;font-weight:600">⚠ Insira sua chave antes de fazer upload.</div>
+    <!-- API Key — sempre visível -->
+    <div id="api-key-bar" style="padding:14px 28px 0;border-top:1px solid var(--border)">
+      <div style="display:flex;align-items:center;gap:10px">
+        <div style="font-size:11px;font-weight:600;color:var(--text3);white-space:nowrap">Chave Anthropic</div>
+        <input class="form-input" id="anthropic-api-key" type="password" placeholder="sk-ant-api03-..." style="flex:1;font-family:var(--font-mono);font-size:12px;padding:7px 12px" autocomplete="off">
+        <button onclick="toggleApiKey()" id="btn-toggle-key" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:7px 12px;font-size:11px;color:var(--text2);cursor:pointer;font-family:var(--font-display);white-space:nowrap">👁</button>
       </div>
+      <div style="font-size:10px;color:var(--text3);margin-top:4px">
+        Necessária para leitura automática de NFs. Crie em 
+        <a href="https://console.anthropic.com/settings/keys" target="_blank" style="color:var(--blue);text-decoration:none">console.anthropic.com</a>
+        · ~R$0,05 por NF · fica só nesta sessão.
+      </div>
+      <div id="key-warning" style="display:none;font-size:11px;color:var(--red);margin-top:3px;font-weight:600">⚠ Insira sua chave Anthropic antes de fazer upload.</div>
+    </div>
+
+    <div id="upload-section" style="padding:24px 28px">
       <div id="drop-zone"
         ondragover="event.preventDefault();this.classList.add('dz-hover')"
         ondragleave="this.classList.remove('dz-hover')"
@@ -1373,10 +1374,44 @@ function makeChart(id, config) {
 }
 
 function buildPriceLine() {
-  const d = getFiltered().filter(r => (r.cat === 'ONT' || r.subcat === 'ONT')).sort((a,b) => a.date.localeCompare(b.date));
+  // Adapt to current filter: show price evolution for selected category
+  const all = getFiltered().sort((a,b) => a.date.localeCompare(b.date));
+  
+  // Decide what to plot
+  let d, chartTitle, threshold;
+  const activeCat = filters.cat;
+  
+  if (activeCat === 'all' || activeCat === 'Equip. Rede') {
+    // Show ONTs only (most meaningful price trend)
+    d = all.filter(r => r.subcat === 'ONT' || r.cat === 'ONT');
+    chartTitle = 'Evolução Preço Unitário — ONT';
+    threshold = 160;
+  } else if (activeCat === 'ONT') {
+    d = all.filter(r => r.subcat === 'ONT' || r.cat === 'ONT');
+    chartTitle = 'Evolução Preço Unitário — ONT';
+    threshold = 160;
+  } else if (activeCat === 'Ativo') {
+    d = all.filter(r => r.cat === 'Ativo');
+    chartTitle = 'Evolução de Valor — Ativos';
+    threshold = null;
+  } else {
+    d = all.filter(r => r.cat === activeCat || r.subcat === activeCat);
+    chartTitle = 'Evolução de Valor — ' + activeCat;
+    threshold = null;
+  }
+
+  // Update chart title in DOM
+  const titleEl = document.querySelector('#chartPriceLine')?.closest('.chart-card')?.querySelector('.chart-title');
+  if (titleEl) titleEl.textContent = chartTitle;
+
+  if (!d.length) {
+    makeChart('chartPriceLine', { type:'line', data:{ labels:['Sem dados'], datasets:[{data:[0], borderColor:'#d4dde9'}] }, options:{ ...CHART_DEFAULTS, plugins:{...CHART_DEFAULTS.plugins, legend:{display:false}} } });
+    return;
+  }
+
   const labels = d.map(r => 'NF '+r.nf);
-  const prices = d.map(r => r.unitPrice);
-  const colors = prices.map(p => p > 160 ? '#ef4444' : '#10b981');
+  const prices = d.map(r => r.unitPrice || r.total);
+  const colors = prices.map(p => threshold ? (p > threshold ? '#ef4444' : '#10b981') : '#2d8cf0');
 
   makeChart('chartPriceLine', {
     type: 'line',
@@ -1405,20 +1440,16 @@ function buildPriceLine() {
             label: ctx => ' R$ ' + ctx.parsed.y.toFixed(2).replace('.', ','),
             afterLabel: ctx => {
               const nf = d[ctx.dataIndex];
-              return [' Qtd: '+nf.qty+' un', ' Total: '+fmt(nf.total)];
+              return [' Qtd: '+(nf.qty||1)+' un', ' Total: '+fmt(nf.total)];
             }
           }
-        },
-        annotation: {}
+        }
       },
       scales: {
         ...CHART_DEFAULTS.scales,
         y: {
           ...CHART_DEFAULTS.scales.y,
-          ticks: {
-            ...CHART_DEFAULTS.scales.y.ticks,
-            callback: v => 'R$' + v.toFixed(0)
-          }
+          ticks: { ...CHART_DEFAULTS.scales.y.ticks, callback: v => 'R$' + v.toFixed(0) }
         }
       }
     }
@@ -1468,9 +1499,20 @@ function buildBuyerDoughnut() {
 function buildMonthly() {
   const yr = filters.year === 'all' ? 2025 : parseInt(filters.year);
   document.getElementById('badge-monthly').textContent = yr;
+  
+  // Update monthly chart title based on category
+  const monthCat = filters.cat === 'all' ? 'ONT' : (filters.cat === 'Equip. Rede' ? 'ONT' : filters.cat);
+  const monthTitleEl = document.querySelector('#chartMonthly')?.closest('.chart-card')?.querySelector('.chart-title');
+  if (monthTitleEl) monthTitleEl.textContent = 'Volume por Mês — ' + monthCat;
   const months = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
-  const d = RAW.filter(r => new Date(r.date).getFullYear() === yr && (r.cat === 'ONT' || r.subcat === 'ONT'));
-  const vals = months.map((_,i) => d.filter(r => new Date(r.date).getMonth() === i).reduce((s,r) => s+r.qty, 0));
+  const activeCatM = filters.cat;
+  const d = RAW.filter(r => {
+    if (new Date(r.date).getFullYear() !== yr) return false;
+    if (activeCatM === 'all' || activeCatM === 'Equip. Rede') return r.subcat === 'ONT' || r.cat === 'ONT';
+    if (activeCatM === 'Ativo') return r.cat === 'Ativo';
+    return r.cat === activeCatM || r.subcat === activeCatM;
+  });
+  const vals = months.map((_,i) => d.filter(r => new Date(r.date).getMonth() === i).reduce((s,r) => s + (r.qty||1), 0));
 
   makeChart('chartMonthly', {
     type: 'bar',
@@ -1503,11 +1545,25 @@ function buildMonthly() {
 
 function buildYearAvg() {
   const years = [2023,2024,2025,2026];
+  const activeCatY = filters.cat;
+
+  // Update title
+  const avgTitleEl = document.querySelector('#chartYearAvg')?.closest('.chart-card')?.querySelector('.chart-title');
+  if (avgTitleEl) {
+    const lbl = (activeCatY === 'all' || activeCatY === 'Equip. Rede') ? 'ONT' : activeCatY;
+    avgTitleEl.textContent = 'Valor Médio por Ano — ' + lbl;
+  }
+
   const avgs = years.map(yr => {
-    const ont = RAW.filter(r => new Date(r.date).getFullYear()===yr && r.cat==='ONT');
-    if (!ont.length) return null;
-    const totalVal = ont.reduce((s,r) => s+r.total, 0);
-    const totalQty = ont.reduce((s,r) => s+r.qty, 0);
+    const items = RAW.filter(r => {
+      if (new Date(r.date).getFullYear() !== yr) return false;
+      if (activeCatY === 'all' || activeCatY === 'Equip. Rede') return r.subcat === 'ONT' || r.cat === 'ONT';
+      if (activeCatY === 'Ativo') return r.cat === 'Ativo';
+      return r.cat === activeCatY || r.subcat === activeCatY;
+    });
+    if (!items.length) return null;
+    const totalVal = items.reduce((s,r) => s+r.total, 0);
+    const totalQty = items.reduce((s,r) => s+(r.qty||1), 0);
     return totalVal/totalQty;
   });
 
