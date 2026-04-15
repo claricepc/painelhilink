@@ -681,21 +681,6 @@ if (!HL_TOKEN) window.location.href = 'index.html';
     </div>
 
     <!-- Upload Zone -->
-    <!-- API Key — sempre visível -->
-    <div id="api-key-bar" style="padding:14px 28px 0;border-top:1px solid var(--border)">
-      <div style="display:flex;align-items:center;gap:10px">
-        <div style="font-size:11px;font-weight:600;color:var(--text3);white-space:nowrap">Chave Anthropic</div>
-        <input class="form-input" id="anthropic-api-key" type="password" placeholder="sk-ant-api03-..." style="flex:1;font-family:var(--font-mono);font-size:12px;padding:7px 12px" autocomplete="off">
-        <button onclick="toggleApiKey()" id="btn-toggle-key" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:7px 12px;font-size:11px;color:var(--text2);cursor:pointer;font-family:var(--font-display);white-space:nowrap">👁</button>
-      </div>
-      <div style="font-size:10px;color:var(--text3);margin-top:4px">
-        Necessária para leitura automática de NFs. Crie em 
-        <a href="https://console.anthropic.com/settings/keys" target="_blank" style="color:var(--blue);text-decoration:none">console.anthropic.com</a>
-        · ~R$0,05 por NF · fica só nesta sessão.
-      </div>
-      <div id="key-warning" style="display:none;font-size:11px;color:var(--red);margin-top:3px;font-weight:600">⚠ Insira sua chave Anthropic antes de fazer upload.</div>
-    </div>
-
     <div id="upload-section" style="padding:24px 28px">
       <div id="drop-zone"
         ondragover="event.preventDefault();this.classList.add('dz-hover')"
@@ -791,6 +776,13 @@ if (!HL_TOKEN) window.location.href = 'index.html';
         <div style="font-size:13px;font-weight:600;color:var(--text)" id="err-msg">Não foi possível ler a nota fiscal.</div>
         <div style="font-size:12px;color:var(--text3);margin-top:4px">Verifique se o arquivo está legível ou preencha os dados manualmente.</div>
         <button onclick="showManualForm()" style="margin-top:14px;background:var(--blue);color:#fff;border:none;border-radius:8px;padding:8px 20px;font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font-display)">Preencher manualmente</button>
+      <div id="err-hint" style="display:none;margin-top:12px;font-size:11px;color:var(--text2);text-align:left;background:var(--surface2);border-radius:8px;padding:10px 12px">
+        <strong>Como configurar a chave Anthropic no Apps Script:</strong><br>
+        1. Abra o Apps Script → <strong>Projeto → ⚙ Configurações do projeto</strong><br>
+        2. Role até <strong>Propriedades do script</strong> → Adicionar propriedade<br>
+        3. Nome: <code>ANTHROPIC_KEY</code> · Valor: sua chave <code>sk-ant-...</code><br>
+        4. Salvar · A chave fica segura no servidor, nunca exposta.
+      </div>
       </div>
     </div>
 
@@ -1328,11 +1320,7 @@ function updateKPIs() {
   }
   const totalInvest = d.reduce((s,r) => s+r.total, 0);
   // Update price line badge label
-  const badgeEl = document.getElementById('badge-price-line');
-  if (badgeEl) {
-    const lbl = (activeCatKPI === 'all' || activeCatKPI === 'Equip. Rede') ? 'ONT' : (activeCatKPI || 'Todos');
-    badgeEl.textContent = lbl;
-  }
+  // badge updated in buildPriceLine
   const ontInvest = ont.reduce((s,r) => s+r.total, 0);
   const ontUnits = ont.reduce((s,r) => s + (r.qty && r.qty > 0 ? r.qty : 1), 0);
   // For assets, use total directly as unit value
@@ -1417,28 +1405,30 @@ function buildPriceLine() {
   let d, chartTitle, threshold;
   const activeCat = filters.cat;
   
+  // Use filter label as-is for title
+  const displayLabel = activeCat === 'all' ? 'Todos' : activeCat;
+  
   if (activeCat === 'all' || activeCat === 'Equip. Rede') {
-    // Show ONTs only (most meaningful price trend)
     d = all.filter(r => r.subcat === 'ONT' || r.cat === 'ONT');
-    chartTitle = 'Evolução Preço Unitário — ONT';
     threshold = 160;
   } else if (activeCat === 'ONT') {
     d = all.filter(r => r.subcat === 'ONT' || r.cat === 'ONT');
-    chartTitle = 'Evolução Preço Unitário — ONT';
     threshold = 160;
   } else if (activeCat === 'Ativo') {
     d = all.filter(r => r.cat === 'Ativo');
-    chartTitle = 'Evolução de Valor — Ativos';
     threshold = null;
   } else {
     d = all.filter(r => r.cat === activeCat || r.subcat === activeCat);
-    chartTitle = 'Evolução de Valor — ' + activeCat;
     threshold = null;
   }
 
-  // Update chart title in DOM
+  chartTitle = 'Evolução de Valor — ' + displayLabel;
+
+  // Update chart title and badge in DOM
   const titleEl = document.querySelector('#chartPriceLine')?.closest('.chart-card')?.querySelector('.chart-title');
   if (titleEl) titleEl.textContent = chartTitle;
+  const badgeEl2 = document.getElementById('badge-price-line');
+  if (badgeEl2) badgeEl2.textContent = displayLabel;
 
   if (!d.length) {
     makeChart('chartPriceLine', { type:'line', data:{ labels:['Sem dados'], datasets:[{data:[0], borderColor:'#d4dde9'}] }, options:{ ...CHART_DEFAULTS, plugins:{...CHART_DEFAULTS.plugins, legend:{display:false}} } });
@@ -1537,9 +1527,9 @@ function buildMonthly() {
   document.getElementById('badge-monthly').textContent = yr;
   
   // Update monthly chart title based on category
-  const monthCat = filters.cat === 'all' ? 'ONT' : (filters.cat === 'Equip. Rede' ? 'ONT' : filters.cat);
+  const monthLabel = filters.cat === 'all' ? 'Todos' : filters.cat;
   const monthTitleEl = document.querySelector('#chartMonthly')?.closest('.chart-card')?.querySelector('.chart-title');
-  if (monthTitleEl) monthTitleEl.textContent = 'Volume por Mês — ' + monthCat;
+  if (monthTitleEl) monthTitleEl.textContent = 'Volume por Mês — ' + monthLabel;
   const months = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
   const activeCatM = filters.cat;
   const d = RAW.filter(r => {
@@ -1584,11 +1574,9 @@ function buildYearAvg() {
   const activeCatY = filters.cat;
 
   // Update title
+  const yearLabel = activeCatY === 'all' ? 'Todos' : activeCatY;
   const avgTitleEl = document.querySelector('#chartYearAvg')?.closest('.chart-card')?.querySelector('.chart-title');
-  if (avgTitleEl) {
-    const lbl = (activeCatY === 'all' || activeCatY === 'Equip. Rede') ? 'ONT' : activeCatY;
-    avgTitleEl.textContent = 'Valor Médio por Ano — ' + lbl;
-  }
+  if (avgTitleEl) avgTitleEl.textContent = 'Valor Médio por Ano — ' + yearLabel;
 
   const avgs = years.map(yr => {
     const items = RAW.filter(r => {
@@ -1921,16 +1909,7 @@ function renderAll() {
 let uploadState = { file: null, fileB64: null, fileMime: null, fileName: null };
 let sessionNFs = [];
 
-function getApiKey() {
-  return (document.getElementById('anthropic-api-key')?.value || '').trim();
-}
-function toggleApiKey() {
-  const inp = document.getElementById('anthropic-api-key');
-  const btn = document.getElementById('btn-toggle-key');
-  if (!inp) return;
-  if (inp.type === 'password') { inp.type = 'text'; btn.textContent = '🙈 Ocultar'; }
-  else { inp.type = 'password'; btn.textContent = '👁 Ver'; }
-}
+// API key handled server-side via Apps Script
 
 function openUploadModal() {
   document.getElementById('upload-overlay').style.display = 'flex';
@@ -1951,12 +1930,7 @@ function processFile(file) {
   const allowed = ['application/pdf','image/jpeg','image/jpg','image/png'];
   if (!allowed.includes(file.type)) { alert('Formato não suportado. Use PDF, JPG ou PNG.'); return; }
   if (file.size > 20 * 1024 * 1024) { alert('Arquivo muito grande. Máximo 20MB.'); return; }
-  if (!getApiKey()) {
-    const w = document.getElementById('key-warning');
-    if (w) { w.style.display = 'block'; setTimeout(() => w.style.display = 'none', 4000); }
-    document.getElementById('anthropic-api-key')?.focus();
-    return;
-  }
+  // API key handled server-side
   const reader = new FileReader();
   reader.onload = (ev) => {
     const b64 = ev.target.result.split(',')[1];
@@ -1988,68 +1962,41 @@ async function extractWithAI(b64, mimeType, fileName) {
   document.getElementById('extract-form').style.display = 'none';
   document.getElementById('extract-error').style.display = 'none';
 
-  const msgs = ['Lendo a nota fiscal…','Identificando itens e valores…','Extraindo dados estruturados…','Quase pronto…'];
+  const msgs = ['Enviando para leitura…','Identificando itens e valores…','Extraindo dados estruturados…','Quase pronto…'];
   let mi = 0;
   const statusEl = document.getElementById('ai-status-msg');
-  const interval = setInterval(() => { mi = (mi+1)%msgs.length; statusEl.textContent = msgs[mi]; }, 1800);
-
-  const prompt = `Você é um sistema de OCR e extração de dados de notas fiscais brasileiras.
-Analise esta imagem/PDF de uma nota fiscal e extraia os dados no seguinte formato JSON exato. Se um campo não for encontrado, use null.
-{
-  "nf": "número da nota (somente números, sem prefixos NF-e etc)",
-  "date": "data formato YYYY-MM-DD",
-  "buyer": "nome do comprador",
-  "supplier": "nome do fornecedor/emitente",
-  "items": [{"model":"descrição do produto","cat":"ONT ou Mesh ou Switch","qty":numero,"unit_price":numero,"total":numero}],
-  "total_nf": numero,
-  "obs": "observações ou campos a verificar"
-}
-Para cat: XC220/XX530 = ONT, HC220 = Mesh, TL-SG = Switch.
-Responda APENAS com o JSON, sem markdown, sem explicações.`;
-
-  let contentArr;
-  if (mimeType === 'application/pdf') {
-    contentArr = [{ type:'document', source:{type:'base64',media_type:'application/pdf',data:b64} },{ type:'text',text:prompt }];
-  } else {
-    contentArr = [{ type:'image', source:{type:'base64',media_type:mimeType,data:b64} },{ type:'text',text:prompt }];
-  }
+  const interval = setInterval(() => { mi=(mi+1)%msgs.length; statusEl.textContent=msgs[mi]; }, 1800);
 
   try {
-    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+    // Route through Apps Script (server-side, no CORS)
+    const resp = await fetch(API_URL, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': getApiKey(),
-        'anthropic-version': '2023-06-01'
-      },
-      body: JSON.stringify({ model:'claude-sonnet-4-20250514', max_tokens:1000, messages:[{role:'user',content:contentArr}] })
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action:   'extractNF',
+        token:    HL_TOKEN,
+        fileB64:  b64,
+        fileMime: mimeType,
+        fileName: fileName
+      })
     });
     clearInterval(interval);
-    if (!resp.ok) {
-      const err = await resp.json().catch(() => ({}));
-      const msg = err?.error?.message || 'Erro ' + resp.status;
-      throw new Error(msg);
-    }
+    if (!resp.ok) throw new Error('Erro ' + resp.status);
     const data = await resp.json();
-    const raw = data.content.find(b => b.type==='text')?.text || '';
-    const parsed = JSON.parse(raw.replace(/```json|```/g,'').trim());
+    if (!data.success) throw new Error(data.error || 'Falha na extração');
     document.getElementById('extract-loading').style.display = 'none';
-    populateForm(parsed);
+    populateForm(data.extracted);
   } catch(err) {
     clearInterval(interval);
     document.getElementById('extract-loading').style.display = 'none';
     document.getElementById('extract-error').style.display = 'block';
     let msg = err.message || 'Falha na leitura';
-    if (msg.includes('Failed to fetch') || msg.includes('NetworkError') || msg.includes('CORS')) {
-      msg = 'Erro de conexão com a API Anthropic. Verifique se a chave foi inserida corretamente no campo acima.';
-    } else if (msg.includes('401') || msg.toLowerCase().includes('api key') || msg.includes('invalid x-api-key')) {
-      msg = 'Chave de API inválida. Verifique e tente novamente.';
-    } else if (msg.includes('429')) {
-      msg = 'Limite de requisições atingido. Aguarde alguns instantes.';
-    } else if (msg.includes('credit') || msg.includes('quota')) {
-      msg = 'Créditos insuficientes na conta Anthropic.';
-    }
+    if (msg.includes('ANTHROPIC_KEY')) msg = 'Chave Anthropic não configurada no Apps Script. Veja instruções abaixo.';
     document.getElementById('err-msg').textContent = msg;
+    // Show setup hint if key not configured
+    if (msg.includes('Apps Script')) {
+      document.getElementById('err-hint').style.display = 'block';
+    }
   }
 }
 
