@@ -1208,7 +1208,7 @@ async function loadFromAPI() {
       data.nfs.forEach(n => {
         RAW.push({
           nf:        String(n.nf),
-          date:      n.date,
+          date:      (n.date ? String(n.date).substring(0, 10) : ''),
           buyer:     n.buyer,
           supplier:  n.supplier,
           qty:       Number(n.qty),
