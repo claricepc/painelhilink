@@ -947,14 +947,14 @@ if (!HL_TOKEN) window.location.href = 'index.html';
       <div class="kpi-sub">notas fiscais</div>
     </div>
     <div class="kpi-card" style="--accent: var(--cyan)">
-      <div class="kpi-label">Unidades ONT</div>
+      <div class="kpi-label" data-kpi="ont-label">Unidades ONT</div>
       <div class="kpi-value" id="kpi-ont">—</div>
       <div class="kpi-sub">equipamentos</div>
     </div>
     <div class="kpi-card" style="--accent: var(--green)">
       <div class="kpi-label">Investimento Total</div>
       <div class="kpi-value large" id="kpi-total">—</div>
-      <div class="kpi-sub" id="kpi-ont-sub">em ONT: —</div>
+      <div class="kpi-sub" id="kpi-ont-sub" data-kpi="ont-sub">em ONT: —</div>
     </div>
     <div class="kpi-card" style="--accent: var(--amber)">
       <div class="kpi-label">Preço Médio ONT</div>
@@ -972,7 +972,7 @@ if (!HL_TOKEN) window.location.href = 'index.html';
       <div class="kpi-sub" id="kpi-max-nf">—</div>
     </div>
     <div class="kpi-card" style="--accent: var(--red)">
-      <div class="kpi-label">NFs Acima R$160</div>
+      <div class="kpi-label" id="kpi-above-label">NFs Acima R$160</div>
       <div class="kpi-value" id="kpi-above">—</div>
       <div class="kpi-badge warn" id="kpi-above-pct">—</div>
     </div>
@@ -1307,23 +1307,57 @@ function priceClass(p) {
 // ─────────────────────────────────────────────
 function updateKPIs() {
   const d = getFiltered();
-  const ont = d.filter(r => (r.cat === 'ONT' || r.subcat === 'ONT'));
+  // Adapt KPI subject based on active filter
+  const activeCatKPI = filters.cat;
+  let ont, kpiLabel;
+  if (activeCatKPI === 'all' || activeCatKPI === 'Equip. Rede' || activeCatKPI === 'ONT') {
+    ont = d.filter(r => r.cat === 'ONT' || r.subcat === 'ONT');
+    kpiLabel = 'ONT';
+  } else if (activeCatKPI === 'Ativo') {
+    ont = d.filter(r => r.cat === 'Ativo');
+    kpiLabel = 'Ativo';
+  } else if (activeCatKPI === 'Mesh') {
+    ont = d.filter(r => r.cat === 'Mesh' || r.subcat === 'Mesh');
+    kpiLabel = 'Mesh';
+  } else if (activeCatKPI === 'Switch') {
+    ont = d.filter(r => r.cat === 'Switch' || r.subcat === 'Switch');
+    kpiLabel = 'Switch';
+  } else {
+    ont = d.filter(r => r.cat === activeCatKPI || r.subcat === activeCatKPI);
+    kpiLabel = activeCatKPI || 'Itens';
+  }
   const totalInvest = d.reduce((s,r) => s+r.total, 0);
+  // Update price line badge label
+  const badgeEl = document.getElementById('badge-price-line');
+  if (badgeEl) {
+    const lbl = (activeCatKPI === 'all' || activeCatKPI === 'Equip. Rede') ? 'ONT' : (activeCatKPI || 'Todos');
+    badgeEl.textContent = lbl;
+  }
   const ontInvest = ont.reduce((s,r) => s+r.total, 0);
-  const ontUnits = ont.reduce((s,r) => s+r.qty, 0);
-  const avgPrice = ontUnits > 0 ? ontInvest / ontUnits : 0;
+  const ontUnits = ont.reduce((s,r) => s + (r.qty && r.qty > 0 ? r.qty : 1), 0);
+  // For assets, use total directly as unit value
+  const isAsset = activeCatKPI === 'Ativo';
+  const avgPrice = isAsset
+    ? (ont.length > 0 ? ont.reduce((s,r) => s + r.total, 0) / ont.length : 0)
+    : (ontUnits > 0 ? ontInvest / ontUnits : 0);
 
-  const prices = ont.map(r => r.unitPrice);
+  const prices = ont.map(r => r.unitPrice > 0 ? r.unitPrice : r.total).filter(p => p > 0);
   const minP = prices.length ? Math.min(...prices) : 0;
   const maxP = prices.length ? Math.max(...prices) : 0;
   const minNF = ont.find(r => r.unitPrice === minP);
   const maxNF = ont.find(r => r.unitPrice === maxP);
 
-  const aboveThreshold = ont.filter(r => r.unitPrice > 160);
+  const threshold = isAsset ? 50000 : 160; // R$50k for assets, R$160 for ONT
+  const aboveThreshold = ont.filter(r => (r.unitPrice > 0 ? r.unitPrice : r.total) > threshold);
   const saving = ont.reduce((s,r) => s + Math.max(0,(r.unitPrice - minP)*r.qty), 0);
 
   document.getElementById('kpi-nf').textContent = d.length;
   document.getElementById('kpi-ont').textContent = fmtN(ontUnits);
+  // Update KPI labels based on category
+  const kpiOntLabel = document.querySelector('[data-kpi="ont-label"]');
+  if (kpiOntLabel) kpiOntLabel.textContent = 'Unidades ' + kpiLabel;
+  const kpiOntSub2 = document.querySelector('[data-kpi="ont-sub"]');
+  if (kpiOntSub2) kpiOntSub2.textContent = 'em ' + kpiLabel + ': ' + fmt(ontInvest);
   document.getElementById('kpi-total').textContent = fmt(totalInvest);
   document.getElementById('kpi-ont-sub').textContent = 'em ONT: ' + fmt(ontInvest);
   document.getElementById('kpi-avg').textContent = avgPrice ? fmt(avgPrice) : '—';
@@ -1332,6 +1366,8 @@ function updateKPIs() {
   document.getElementById('kpi-max').textContent = maxP ? fmt(maxP) : '—';
   document.getElementById('kpi-max-nf').textContent = maxNF ? 'NF ' + maxNF.nf : '—';
   document.getElementById('kpi-above').textContent = aboveThreshold.length;
+  const aboveLblEl = document.getElementById('kpi-above-label');
+  if (aboveLblEl) aboveLblEl.textContent = isAsset ? 'Ativos >R$50k' : 'NFs Acima R$160';
   document.getElementById('kpi-above-pct').textContent = ont.length ? Math.round(aboveThreshold.length/ont.length*100) + '% das NFs ONT' : '—';
   document.getElementById('kpi-saving').textContent = saving > 0 ? fmt(saving) : 'R$ 0';
   document.getElementById('filter-count').textContent = d.length + ' de ' + RAW.length + ' NFs';
@@ -1703,7 +1739,7 @@ function renderSummaryBuyer() {
     const rows = d.filter(r => r.buyer === b);
     const ont = rows.filter(r => r.cat==='ONT');
     const nfs = rows.length;
-    const ontUnits = ont.reduce((s,r) => s+r.qty, 0);
+    const ontUnits = ont.reduce((s,r) => s + (r.qty && r.qty > 0 ? r.qty : 1), 0);
     const investTotal = rows.reduce((s,r) => s+r.total, 0);
     const ontInvest = ont.reduce((s,r) => s+r.total, 0);
     const avgOnt = ontUnits > 0 ? ontInvest/ontUnits : 0;
@@ -1744,7 +1780,7 @@ function renderSummaryYear() {
     const d = RAW.filter(r => new Date(r.date).getFullYear()===yr);
     const ont = d.filter(r => r.cat==='ONT');
     const nfs = d.length;
-    const ontUnits = ont.reduce((s,r) => s+r.qty, 0);
+    const ontUnits = ont.reduce((s,r) => s + (r.qty && r.qty > 0 ? r.qty : 1), 0);
     const ontTotal = ont.reduce((s,r) => s+r.total, 0);
     const avgOnt = ontUnits > 0 ? ontTotal/ontUnits : 0;
     const ontPrices = ont.map(r => r.unitPrice);
