@@ -1196,9 +1196,24 @@ async function loadFromAPI() {
       document.getElementById('data-status').textContent = 'Modo demo · ' + RAW.length + ' NFs (API não configurada)';
     } else {
       const qs = new URLSearchParams({ action:'getNFs', token: HL_TOKEN }).toString();
-      const resp = await fetch(API_URL + '?' + qs);
+      // 15 second timeout
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 15000);
+      let resp;
+      try {
+        resp = await fetch(API_URL + '?' + qs, { signal: controller.signal });
+      } finally {
+        clearTimeout(timer);
+      }
       const data = await resp.json();
-      if (!data.success) throw new Error(data.error || 'Erro ao carregar dados');
+      if (!data.success) {
+        if (data.error && (data.error.includes('autorizado') || data.error.includes('token'))) {
+          sessionStorage.clear();
+          window.location.href = 'index.html';
+          return;
+        }
+        throw new Error(data.error || 'Erro ao carregar dados');
+      }
       data.nfs.forEach(n => {
         RAW.push({
           nf:        String(n.nf),
@@ -1220,8 +1235,27 @@ async function loadFromAPI() {
       document.getElementById('data-status').textContent = RAW.length + ' NFs carregadas';
     }
   } catch(e) {
-    document.getElementById('data-status').textContent = 'Erro ao carregar: ' + e.message;
+    const msg = e.name === 'AbortError' 
+      ? 'Tempo esgotado ao carregar dados. Verifique se o Apps Script está implantado corretamente.'
+      : 'Erro ao carregar: ' + e.message;
+    document.getElementById('data-status').textContent = msg;
+    document.getElementById('page-loader').innerHTML = `
+      <div style="text-align:center;padding:32px;max-width:480px">
+        <div style="font-size:32px;margin-bottom:16px">⚠️</div>
+        <div style="font-size:15px;font-weight:700;color:#1a2535;margin-bottom:8px">Erro ao carregar dados</div>
+        <div style="font-size:13px;color:#4a5f7a;margin-bottom:20px">${msg}</div>
+        <div style="font-size:12px;color:#8a9bb5;background:#f4f7fb;border-radius:10px;padding:14px;text-align:left;margin-bottom:16px">
+          <strong>Possíveis causas:</strong><br>
+          • Apps Script não reimplantado após setup()<br>
+          • Sessão expirada — <a href="index.html" style="color:#1a6bc4">fazer login novamente</a><br>
+          • URL do Apps Script incorreta no dashboard
+        </div>
+        <button onclick="location.reload()" style="background:#1a6bc4;color:#fff;border:none;border-radius:8px;padding:10px 24px;font-size:13px;font-weight:600;cursor:pointer;margin-right:8px">↺ Tentar novamente</button>
+        <a href="index.html" style="background:#f4f7fb;color:#4a5f7a;border:1px solid #d4dde9;border-radius:8px;padding:10px 20px;font-size:13px;text-decoration:none">Fazer login</a>
+      </div>`;
+    document.getElementById('page-loader').style.display = 'flex';
     console.error(e);
+    return;
   }
   document.getElementById('page-loader').style.display = 'none';
   renderAll();
@@ -1246,6 +1280,7 @@ function applyFilters(data) {
       else if (fc === 'Mesh')   catMatch = r.cat === 'Mesh' || r.subcat === 'Mesh';
       else if (fc === 'Switch') catMatch = r.cat === 'Switch' || r.subcat === 'Switch';
       else if (fc === 'Ativo')  catMatch = r.cat === 'Ativo';
+      else if (fc === 'Misto')  catMatch = r.subcat === 'Misto';
       else catMatch = r.cat === fc || r.subcat === fc;
       if (!catMatch) return false;
     }
@@ -1289,7 +1324,8 @@ function catBadge(cat, subcat) {
   const m = { 
     'ONT':'badge-ont', 'Mesh':'badge-mesh', 'Switch':'badge-switch',
     'Equip. Rede':'badge-ont', 'Acessório':'badge-switch',
-    'Ativo':'badge-asset', 'Veículo':'badge-asset', 'Moto':'badge-asset'
+    'Ativo':'badge-asset', 'Veículo':'badge-asset', 'Moto':'badge-asset',
+    'Misto':'badge-amber', 'Acessório':'badge-switch'
   };
   return `<span class="badge ${m[display]||m[cat]||''}">${display}</span>`;
 }
@@ -1317,6 +1353,9 @@ function updateKPIs() {
   } else if (activeCatKPI === 'Mesh') {
     ont = d.filter(r => r.cat === 'Mesh' || r.subcat === 'Mesh');
     kpiLabel = 'Mesh';
+  } else if (activeCatKPI === 'Misto') {
+    ont = d.filter(r => r.subcat === 'Misto');
+    kpiLabel = 'Misto';
   } else if (activeCatKPI === 'Switch') {
     ont = d.filter(r => r.cat === 'Switch' || r.subcat === 'Switch');
     kpiLabel = 'Switch';
@@ -1697,8 +1736,12 @@ function renderTableAll() {
 // TABLE: ABOVE R$160
 // ─────────────────────────────────────────────
 function renderTableAbove() {
-  const d = getFiltered().filter(r => (r.cat === 'ONT' || r.subcat === 'ONT') && r.unitPrice > 160)
-    .sort((a,b) => b.unitPrice - a.unitPrice);
+  // Show high-value NFs: ONT > R$160 OR Ativos > R$50k OR any > R$1000
+  const d = getFiltered().filter(r => {
+    if (r.cat === 'Ativo') return r.total > 50000;
+    if (r.subcat === 'ONT' || r.cat === 'ONT') return r.unitPrice > 0 && r.unitPrice > 160;
+    return r.total > 1000;
+  }).sort((a,b) => b.total - a.total);
 
   document.getElementById('cnt-above').textContent = d.length;
 
