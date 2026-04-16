@@ -633,11 +633,8 @@ const HL_ROLE  = sessionStorage.getItem('hl_role')  || 'user';
 if (!HL_TOKEN) window.location.href = 'index.html';
 </script>
 
-<!-- Loading overlay (shown while fetching NFs) -->
-<div id="page-loader" style="position:fixed;inset:0;background:var(--bg);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px">
-  <div style="width:40px;height:40px;border:3px solid var(--border);border-top-color:var(--blue);border-radius:50%;animation:spin 0.7s linear infinite"></div>
-  <div style="font-size:13px;color:var(--text2);font-family:var(--font-display)">Carregando dados…</div>
-</div>
+<!-- Loader removido: o painel exibe dados demo imediatamente; o status da API aparece no topo -->
+<div id="page-loader" style="display:none"></div>
 <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
 
 <!-- HEADER -->
