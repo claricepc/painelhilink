@@ -1698,10 +1698,15 @@ function buildYearAvg() {
 }
 
 function rebuildCharts() {
-  buildPriceLine();
-  buildBuyerDoughnut();
-  buildMonthly();
-  buildYearAvg();
+  if (typeof Chart === 'undefined') return; // Chart.js CDN indisponível — tabelas/KPIs continuam funcionando
+  try {
+    buildPriceLine();
+    buildBuyerDoughnut();
+    buildMonthly();
+    buildYearAvg();
+  } catch (e) {
+    console.error('Falha ao construir gráficos:', e);
+  }
 }
 
 // ─────────────────────────────────────────────
@@ -1973,12 +1978,13 @@ function exportCSV() {
 // RENDER ALL
 // ─────────────────────────────────────────────
 function renderAll() {
-  updateKPIs();
-  renderTableAll();
-  renderTableAbove();
-  renderSummaryBuyer();
-  renderSummaryYear();
-  rebuildCharts();
+  const safe = (fn, label) => { try { fn(); } catch(e) { console.error(label+' falhou:', e); } };
+  safe(updateKPIs, 'updateKPIs');
+  safe(renderTableAll, 'renderTableAll');
+  safe(renderTableAbove, 'renderTableAbove');
+  safe(renderSummaryBuyer, 'renderSummaryBuyer');
+  safe(renderSummaryYear, 'renderSummaryYear');
+  safe(rebuildCharts, 'rebuildCharts');
 }
 
 // ─────────────────────────────────────────────
@@ -2463,13 +2469,46 @@ async function savePending(nf, idx) {
 // ─────────────────────────────────────────────
 // INIT
 // ─────────────────────────────────────────────
-document.getElementById('footer-ts').textContent = 'Hilink · Painel de Aquisições · ' + new Date().toLocaleDateString('pt-BR');
-Chart.defaults.font.family = "'JetBrains Mono', monospace";
-// Set user info in header
-document.getElementById('user-name-label').textContent = HL_NAME || HL_EMAIL;
-if (HL_ROLE === 'admin') document.getElementById('btn-admin').style.display = 'block';
-// Carregar dados (demo imediato + API em background)
-loadFromAPI();
+// Safety net: se algo der errado abaixo, o loader não fica preso para sempre.
+const __loaderSafety = setTimeout(() => {
+  const el = document.getElementById('page-loader');
+  if (el && el.style.display !== 'none') {
+    el.style.display = 'none';
+    const st = document.getElementById('data-status');
+    if (st && st.textContent === 'Carregando…') st.textContent = 'Pronto · modo offline';
+  }
+}, 4000);
+window.addEventListener('error', () => {
+  const el = document.getElementById('page-loader');
+  if (el) el.style.display = 'none';
+});
+
+try {
+  const footerEl = document.getElementById('footer-ts');
+  if (footerEl) footerEl.textContent = 'Hilink · Painel de Aquisições · ' + new Date().toLocaleDateString('pt-BR');
+  // Chart.js pode falhar ao carregar (CDN bloqueado). Não deixar travar o painel.
+  if (typeof Chart !== 'undefined') {
+    Chart.defaults.font.family = "'JetBrains Mono', monospace";
+  }
+  // Set user info in header
+  const nameEl = document.getElementById('user-name-label');
+  if (nameEl) nameEl.textContent = HL_NAME || HL_EMAIL;
+  if (HL_ROLE === 'admin') {
+    const adminBtn = document.getElementById('btn-admin');
+    if (adminBtn) adminBtn.style.display = 'block';
+  }
+  // Carregar dados (demo imediato + API em background)
+  loadFromAPI().catch(err => {
+    console.error('loadFromAPI falhou:', err);
+    const el = document.getElementById('page-loader');
+    if (el) el.style.display = 'none';
+  }).finally(() => clearTimeout(__loaderSafety));
+} catch (err) {
+  console.error('Erro na inicialização do painel:', err);
+  const el = document.getElementById('page-loader');
+  if (el) el.style.display = 'none';
+  clearTimeout(__loaderSafety);
+}
 </script>
 
 <!-- ADMIN MODAL: Gerenciar Usuários -->
