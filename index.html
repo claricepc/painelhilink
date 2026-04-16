@@ -208,7 +208,10 @@ async function doLogin() {
 
   try {
     const url = API_URL + '?action=login&email=' + encodeURIComponent(email) + '&pass=' + encodeURIComponent(password);
-    const resp = await fetch(url);
+    const ctrl = new AbortController();
+    const tid  = setTimeout(() => ctrl.abort(), 15000);
+    const resp = await fetch(url, { signal: ctrl.signal });
+    clearTimeout(tid);
     const data = await resp.json();
 
     if (data.success) {
@@ -224,7 +227,10 @@ async function doLogin() {
       btn.textContent = 'Entrar';
     }
   } catch(e) {
-    showMsg('Erro de conexão com a API. Verifique a URL do Apps Script.', 'error');
+    const msg = e.name === 'AbortError'
+      ? 'A API demorou mais de 15s. Tente novamente.'
+      : 'Erro de conexão com a API. Verifique a URL do Apps Script.';
+    showMsg(msg, 'error');
     btn.disabled = false;
     btn.textContent = 'Entrar';
   }
