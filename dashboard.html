@@ -1382,7 +1382,6 @@ function updateKPIs() {
   // Update price line badge label
   // badge updated in buildPriceLine
   const ontInvest = ont.reduce((s,r) => s+r.total, 0);
-  const ontUnitsDisplay = activeCatKPI === 'Ativo' ? ont.length : ontUnits; // assets: count NFs not qty
   const ontUnits = ont.reduce((s,r) => s + (r.qty && r.qty > 0 ? r.qty : 1), 0);
   // For assets, use total directly as unit value
   const isAsset = activeCatKPI === 'Ativo';
@@ -1393,8 +1392,6 @@ function updateKPIs() {
   const prices = ont.map(r => r.unitPrice > 0 ? r.unitPrice : r.total).filter(p => p > 0);
   const minP = prices.length ? Math.min(...prices) : 0;
   const maxP = prices.length ? Math.max(...prices) : 0;
-  const minNF = ont.find(r => r.unitPrice === minP);
-  const maxNF = ont.find(r => r.unitPrice === maxP);
 
   const threshold = isAsset ? 50000 : 160; // R$50k for assets, R$160 for ONT
   const aboveThreshold = ont.filter(r => (r.unitPrice > 0 ? r.unitPrice : r.total) > threshold);
