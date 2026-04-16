@@ -1239,12 +1239,18 @@ function applyFilters(data) {
     if (filters.year !== "all" && yr !== parseInt(filters.year)) return false;
     if (filters.buyer !== "all" && r.buyer !== filters.buyer) return false;
     if (filters.cat !== "all") {
-      // match category or subcategory
-      const catMatch = r.cat === filters.cat || r.subcat === filters.cat || 
-        (filters.cat === 'Equip. Rede' && r.cat === 'Equip. Rede');
+      const fc = filters.cat;
+      let catMatch = false;
+      if (fc === 'Equip. Rede') catMatch = r.cat === 'Equip. Rede';
+      else if (fc === 'ONT')    catMatch = r.cat === 'ONT' || r.subcat === 'ONT' || r.cat === 'Equip. Rede';
+      else if (fc === 'Mesh')   catMatch = r.cat === 'Mesh' || r.subcat === 'Mesh';
+      else if (fc === 'Switch') catMatch = r.cat === 'Switch' || r.subcat === 'Switch';
+      else if (fc === 'Ativo')  catMatch = r.cat === 'Ativo';
+      else catMatch = r.cat === fc || r.subcat === fc;
       if (!catMatch) return false;
     }
-    if (r.unitPrice > filters.maxPrice) return false;
+    // Skip price filter for assets (vehicles cost >R$600)
+    if (r.cat !== 'Ativo' && r.unitPrice > 0 && r.unitPrice > filters.maxPrice) return false;
     return true;
   });
 }
@@ -1322,6 +1328,7 @@ function updateKPIs() {
   // Update price line badge label
   // badge updated in buildPriceLine
   const ontInvest = ont.reduce((s,r) => s+r.total, 0);
+  const ontUnitsDisplay = activeCatKPI === 'Ativo' ? ont.length : ontUnits; // assets: count NFs not qty
   const ontUnits = ont.reduce((s,r) => s + (r.qty && r.qty > 0 ? r.qty : 1), 0);
   // For assets, use total directly as unit value
   const isAsset = activeCatKPI === 'Ativo';
@@ -1342,10 +1349,17 @@ function updateKPIs() {
   document.getElementById('kpi-nf').textContent = d.length;
   document.getElementById('kpi-ont').textContent = fmtN(ontUnits);
   // Update KPI labels based on category
-  const kpiOntLabel = document.querySelector('[data-kpi="ont-label"]');
-  if (kpiOntLabel) kpiOntLabel.textContent = 'Unidades ' + kpiLabel;
-  const kpiOntSub2 = document.querySelector('[data-kpi="ont-sub"]');
-  if (kpiOntSub2) kpiOntSub2.textContent = 'em ' + kpiLabel + ': ' + fmt(ontInvest);
+  const kpiOntLabelEl = document.querySelector('[data-kpi="ont-label"]');
+  if (kpiOntLabelEl) kpiOntLabelEl.textContent = 'Unidades ' + kpiLabel;
+  const kpiOntSubEl = document.getElementById('kpi-ont-sub');
+  if (kpiOntSubEl) kpiOntSubEl.textContent = 'em ' + kpiLabel + ': ' + fmt(ontInvest);
+  // Update minor label text
+  const kpiMinNfEl = document.getElementById('kpi-min-nf');
+  const kpiMaxNfEl = document.getElementById('kpi-max-nf');
+  const minNF = ont.find(r => (r.unitPrice > 0 ? r.unitPrice : r.total) === minP);
+  const maxNF = ont.find(r => (r.unitPrice > 0 ? r.unitPrice : r.total) === maxP);
+  if (kpiMinNfEl) kpiMinNfEl.textContent = minNF ? 'NF ' + minNF.nf : '—';
+  if (kpiMaxNfEl) kpiMaxNfEl.textContent = maxNF ? 'NF ' + maxNF.nf : '—';
   document.getElementById('kpi-total').textContent = fmt(totalInvest);
   document.getElementById('kpi-ont-sub').textContent = 'em ONT: ' + fmt(ontInvest);
   document.getElementById('kpi-avg').textContent = avgPrice ? fmt(avgPrice) : '—';
@@ -1408,10 +1422,7 @@ function buildPriceLine() {
   // Use filter label as-is for title
   const displayLabel = activeCat === 'all' ? 'Todos' : activeCat;
   
-  if (activeCat === 'all' || activeCat === 'Equip. Rede') {
-    d = all.filter(r => r.subcat === 'ONT' || r.cat === 'ONT');
-    threshold = 160;
-  } else if (activeCat === 'ONT') {
+  if (activeCat === 'all' || activeCat === 'Equip. Rede' || activeCat === 'ONT') {
     d = all.filter(r => r.subcat === 'ONT' || r.cat === 'ONT');
     threshold = 160;
   } else if (activeCat === 'Ativo') {
@@ -1558,7 +1569,10 @@ function buildMonthly() {
         ...CHART_DEFAULTS.plugins,
         tooltip: {
           ...CHART_DEFAULTS.plugins.tooltip,
-          callbacks: { label: ctx => ' ' + ctx.parsed.y + ' unidades ONT' }
+          callbacks: { label: ctx => {
+              const lbl = filters.cat === 'all' ? 'ONT' : filters.cat;
+              return ' ' + ctx.parsed.y + ' ' + (ctx.parsed.y === 1 ? 'unidade' : 'unidades') + ' ' + lbl;
+            } }
         }
       },
       scales: {
@@ -1652,7 +1666,7 @@ function renderTableAll() {
 
   const tbody = document.getElementById('tbody-all');
   if (!rows.length) {
-    tbody.innerHTML = '<tr><td colspan="11" class="empty-state">Nenhuma NF encontrada com os filtros aplicados.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="11" class="empty-state">Nenhuma NF encontrada com os filtros aplicados. (Verifique se o slider de preço está alto o suficiente)</td></tr>';
     return;
   }
 
@@ -1730,6 +1744,7 @@ function renderSummaryBuyer() {
     const ontUnits = ont.reduce((s,r) => s + (r.qty && r.qty > 0 ? r.qty : 1), 0);
     const investTotal = rows.reduce((s,r) => s+r.total, 0);
     const ontInvest = ont.reduce((s,r) => s+r.total, 0);
+  const ontUnitsDisplay = activeCatKPI === 'Ativo' ? ont.length : ontUnits; // assets: count NFs not qty
     const avgOnt = ontUnits > 0 ? ontInvest/ontUnits : 0;
     const pct = (investTotal/totalAll*100);
 
@@ -1813,6 +1828,9 @@ document.querySelectorAll('.chip').forEach(chip => {
 document.getElementById('price-filter').addEventListener('input', e => {
   filters.maxPrice = parseInt(e.target.value);
   document.getElementById('price-val').textContent = 'R$ ' + e.target.value;
+  if (filters.cat === 'Ativo') {
+    document.getElementById('price-val').textContent = 'R$ ' + e.target.value + ' (Ativos ignoram este filtro)';
+  }
   renderAll();
 });
 
@@ -2099,9 +2117,25 @@ async function autoSave() {
         })
       });
       const result = await resp.json();
-      if (!result.success) { alert('Erro ao salvar no servidor: ' + (result.error||'Tente novamente')); return; }
+      // Handle upsert responses
+      if (result.success && result.exists && result.hasFile) {
+        // NF exists with file — ask to replace
+        const confirmed = confirm('NF ' + nf + ' já possui arquivo no Drive.\nDeseja substituir?');
+        if (!confirmed) { newRow.driveUrl = result.driveUrl; }
+        else {
+          // Retry with forceReplace
+          const resp2 = await fetch(API_URL, { method:'POST', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({ action:'addNF', token:HL_TOKEN, nf:newRow,
+              fileB64:uploadState.fileB64, fileMime:uploadState.fileMime,
+              fileName:uploadState.fileName, forceReplace:true }) });
+          const r2 = await resp2.json();
+          if (r2.driveUrl) newRow.driveUrl = r2.driveUrl;
+        }
+      } else if (!result.success) {
+        alert('Erro ao salvar: ' + (result.error||'Tente novamente')); return;
+      }
       if (result.driveUrl) newRow.driveUrl = result.driveUrl;
-    } catch(e) { alert('Falha de conexão com a API. NF salva localmente.'); }
+    } catch(e) { alert('Falha de conexão: ' + e.message); }
   }
   RAW.push(newRow);
   RAW.sort((a,b) => a.date.localeCompare(b.date));
