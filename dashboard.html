@@ -1166,101 +1166,117 @@ if (!HL_TOKEN) window.location.href = 'index.html';
 const RAW = []; // dados carregados do Google Sheets via loadFromAPI()
 
 async function loadFromAPI() {
-  try {
-    if (API_URL.includes('COLE_A_URL')) {
-      // Modo demo: carrega dados de exemplo hardcoded
-      const demo = [
-        {nf:"6638",date:"2023-03-31",buyer:"P&B Telecom",supplier:"GMI Distribuidora",qty:100,unitPrice:217.73,total:21773.72,cat:"ONT",model:"XC220-G3V GPON AC1200",alerts:[]},
-        {nf:"7037",date:"2023-05-31",buyer:"P&B Telecom",supplier:"GMI Distribuidora",qty:100,unitPrice:215.00,total:21500.00,cat:"ONT",model:"XC220-G3V GPON AC1200",alerts:[]},
-        {nf:"7638",date:"2023-08-15",buyer:"Hilink",supplier:"GMI Distribuidora",qty:100,unitPrice:218.00,total:21800.00,cat:"ONT",model:"XC220-G3V GPON AC1200",alerts:[]},
-        {nf:"8369",date:"2023-11-29",buyer:"P&B Telecom",supplier:"GMI Distribuidora",qty:400,unitPrice:169.24,total:67696.00,cat:"ONT",model:"XC220-G3 XPON AC1200",alerts:[]},
-        {nf:"8370",date:"2023-11-29",buyer:"Hilink",supplier:"GMI Distribuidora",qty:400,unitPrice:169.24,total:67696.00,cat:"ONT",model:"XC220-G3 XPON AC1200",alerts:[]},
-        {nf:"8399",date:"2023-12-01",buyer:"Hilink",supplier:"GMI Distribuidora",qty:1,unitPrice:504.41,total:504.41,cat:"Mesh",model:"HC220-G5 AC1200 Mesh 2Pack",alerts:[]},
-        {nf:"141620",date:"2023-12-21",buyer:"Digital Life",supplier:"Silvestre Soluções",qty:200,unitPrice:198.00,total:39600.00,cat:"ONT",model:"XC220-G3 AC1200 TP-LINK",alerts:[]},
-        {nf:"11639",date:"2024-10-31",buyer:"Hilink",supplier:"GMI Distribuidora",qty:200,unitPrice:161.99,total:32398.00,cat:"ONT",model:"XC220-G3 XPON AC1200 TP",alerts:[]},
-        {nf:"13165",date:"2025-03-11",buyer:"Hilink",supplier:"GMI Distribuidora",qty:100,unitPrice:168.77,total:16876.87,cat:"ONT",model:"XC220-G3 XPON AC1200 TP",alerts:["corrected"]},
-        {nf:"13314",date:"2025-03-10",buyer:"Hilink",supplier:"GMI Distribuidora",qty:100,unitPrice:168.77,total:16876.87,cat:"ONT",model:"XC220-G3 XPON AC1200 TP",alerts:[]},
-        {nf:"13623",date:"2025-03-27",buyer:"P&B Telecom",supplier:"GMI Distribuidora",qty:1,unitPrice:229.29,total:229.29,cat:"Switch",model:"Switch TP-LINK TL-SG1005P",alerts:[]},
-        {nf:"14343",date:"2025-05-16",buyer:"Hilink",supplier:"GMI Distribuidora",qty:200,unitPrice:153.95,total:30790.14,cat:"ONT",model:"XC220-G3 XPON AC1200 TP",alerts:["pending_item"]},
-        {nf:"14349",date:"2025-05-19",buyer:"P&B Telecom",supplier:"GMI Distribuidora",qty:200,unitPrice:155.37,total:31073.36,cat:"ONT",model:"XC220-G3 XPON AC1200 TP",alerts:[]},
-        {nf:"15207",date:"2025-07-22",buyer:"P&B Telecom",supplier:"GMI Distribuidora",qty:400,unitPrice:146.10,total:58441.28,cat:"ONT",model:"XC220-G3 XPON AC1200 TP",alerts:[]},
-        {nf:"15829",date:"2025-08-29",buyer:"Hilink",supplier:"GMI Distribuidora",qty:2,unitPrice:146.01,total:292.01,cat:"Mesh",model:"HC220-G5(1-Pack) Mesh AC1200",alerts:[]},
-        {nf:"16283",date:"2025-09-29",buyer:"Hilink",supplier:"GMI Distribuidora",qty:30,unitPrice:141.20,total:4236.02,cat:"Mesh",model:"HC220-G5(1-Pack) Mesh AC1200",alerts:[]},
-        {nf:"16479",date:"2025-10-10",buyer:"Hilink",supplier:"GMI Distribuidora",qty:200,unitPrice:157.17,total:31433.28,cat:"ONT",model:"XC220-G3 XPON AC1200 TP",alerts:[]},
-        {nf:"16746",date:"2025-10-28",buyer:"Hilink",supplier:"GMI Distribuidora",qty:400,unitPrice:157.17,total:62866.56,cat:"ONT",model:"XC220-G3 XPON AC1200 TP",alerts:["missing_nf"]},
-        {nf:"17048",date:"2025-11-17",buyer:"Hilink",supplier:"GMI Distribuidora",qty:1,unitPrice:254.11,total:254.11,cat:"ONT",model:"XX530V V2 XPON AX3000",alerts:["reclassify"]},
-        {nf:"17961",date:"2026-01-22",buyer:"Hilink",supplier:"GMI Distribuidora",qty:61,unitPrice:152.42,total:9297.41,cat:"ONT",model:"XC220-G3 XPON AC1200 TP",alerts:[]},
-        {nf:"18028",date:"2026-01-28",buyer:"Hilink",supplier:"GMI Distribuidora",qty:439,unitPrice:157.34,total:69073.75,cat:"ONT",model:"XC220-G3 XPON AC1200 TP",alerts:["missing_nf"]},
-      ];
-      demo.forEach(r => RAW.push(r));
-      document.getElementById('data-status').textContent = 'Modo demo · ' + RAW.length + ' NFs (API não configurada)';
-    } else {
-      const qs = new URLSearchParams({ action:'getNFs', token: HL_TOKEN }).toString();
-      // 15 second timeout
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 15000);
-      let resp;
-      try {
-        resp = await fetch(API_URL + '?' + qs, { signal: controller.signal });
-      } finally {
-        clearTimeout(timer);
-      }
-      const data = await resp.json();
-      if (!data.success) {
-        if (data.error && (data.error.includes('autorizado') || data.error.includes('token'))) {
-          document.getElementById('page-loader').style.display = 'none';
-          sessionStorage.clear();
-          window.location.href = 'index.html';
-          return;
-        }
-        throw new Error(data.error || 'Erro ao carregar dados');
-      }
-      data.nfs.forEach(n => {
-        RAW.push({
-          nf:        String(n.nf),
-          date:      (n.date ? String(n.date).substring(0, 10) : ''),
-          buyer:     n.buyer,
-          supplier:  n.supplier,
-          qty:       Number(n.qty),
-          unitPrice: Number(n.unitPrice),
-          total:     Number(n.total),
-          cat:       n.cat,
-          subcat:    n.subcat || '',
-          model:     n.model || '—',
-          pendingStatus: n.pendingStatus || '',
-          driveUrl:  n.driveUrl || '',
-          alerts:    n.alerts ? String(n.alerts).split(',').filter(Boolean) : []
-        });
-      });
-      RAW.sort((a,b) => a.date.localeCompare(b.date));
-      document.getElementById('data-status').textContent = RAW.length + ' NFs carregadas';
-    }
-  } catch(e) {
-    const msg = e.name === 'AbortError' 
-      ? 'Tempo esgotado ao carregar dados. Verifique se o Apps Script está implantado corretamente.'
-      : 'Erro ao carregar: ' + e.message;
-    document.getElementById('data-status').textContent = msg;
-    document.getElementById('page-loader').innerHTML = `
-      <div style="text-align:center;padding:32px;max-width:480px">
-        <div style="font-size:32px;margin-bottom:16px">⚠️</div>
-        <div style="font-size:15px;font-weight:700;color:#1a2535;margin-bottom:8px">Erro ao carregar dados</div>
-        <div style="font-size:13px;color:#4a5f7a;margin-bottom:20px">${msg}</div>
-        <div style="font-size:12px;color:#8a9bb5;background:#f4f7fb;border-radius:10px;padding:14px;text-align:left;margin-bottom:16px">
-          <strong>Possíveis causas:</strong><br>
-          • Apps Script não reimplantado após setup()<br>
-          • Sessão expirada — <a href="index.html" style="color:#1a6bc4">fazer login novamente</a><br>
-          • URL do Apps Script incorreta no dashboard
-        </div>
-        <button onclick="location.reload()" style="background:#1a6bc4;color:#fff;border:none;border-radius:8px;padding:10px 24px;font-size:13px;font-weight:600;cursor:pointer;margin-right:8px">↺ Tentar novamente</button>
-        <a href="index.html" style="background:#f4f7fb;color:#4a5f7a;border:1px solid #d4dde9;border-radius:8px;padding:10px 20px;font-size:13px;text-decoration:none">Fazer login</a>
-      </div>`;
-    document.getElementById('page-loader').style.display = 'flex';
-    console.error(e);
+  const loader = document.getElementById('page-loader');
+
+  // ── Função auxiliar para esconder loader ──
+  function hideLoader() {
+    if (loader) loader.style.display = 'none';
+  }
+
+  // ── Mostrar dados demo IMEDIATAMENTE enquanto API carrega ──
+  const DEMO = [
+    {nf:"6638",  date:"2023-03-31",buyer:"P&B Telecom",  supplier:"GMI Distribuidora",qty:100,unitPrice:217.73,total:21773.72,cat:"Equip. Rede",subcat:"ONT",  model:"TP-Link XC220-G3V GPON AC1200",alerts:[],pendingStatus:"",driveUrl:""},
+    {nf:"7037",  date:"2023-05-31",buyer:"P&B Telecom",  supplier:"GMI Distribuidora",qty:100,unitPrice:215.00,total:21500.00,cat:"Equip. Rede",subcat:"ONT",  model:"TP-Link XC220-G3V GPON AC1200",alerts:[],pendingStatus:"",driveUrl:""},
+    {nf:"7366",  date:"2023-07-13",buyer:"Hilink",       supplier:"GMI Distribuidora",qty:200,unitPrice:215.00,total:43000.00,cat:"Equip. Rede",subcat:"ONT",  model:"TP-Link XC220-G3V GPON AC1200",alerts:["verificar_qtd"],pendingStatus:"Aberta",driveUrl:""},
+    {nf:"7638",  date:"2023-08-15",buyer:"Hilink",       supplier:"GMI Distribuidora",qty:100,unitPrice:218.00,total:21800.00,cat:"Equip. Rede",subcat:"ONT",  model:"TP-Link XC220-G3V GPON AC1200",alerts:[],pendingStatus:"",driveUrl:""},
+    {nf:"8369",  date:"2023-11-29",buyer:"P&B Telecom",  supplier:"GMI Distribuidora",qty:400,unitPrice:169.24,total:67696.00,cat:"Equip. Rede",subcat:"ONT",  model:"TP-Link XC220-G3 XPON AC1200",alerts:[],pendingStatus:"",driveUrl:""},
+    {nf:"8370",  date:"2023-11-29",buyer:"Hilink",       supplier:"GMI Distribuidora",qty:400,unitPrice:169.24,total:67696.00,cat:"Equip. Rede",subcat:"ONT",  model:"TP-Link XC220-G3 XPON AC1200",alerts:[],pendingStatus:"",driveUrl:""},
+    {nf:"8399",  date:"2023-12-01",buyer:"Hilink",       supplier:"GMI Distribuidora",qty:1,  unitPrice:504.41,total:504.41,  cat:"Equip. Rede",subcat:"Mesh", model:"TP-Link HC220-G5 AC1200 Mesh 2Pack",alerts:[],pendingStatus:"",driveUrl:""},
+    {nf:"141620",date:"2023-12-21",buyer:"Digital Life", supplier:"Silvestre Soluções",qty:200,unitPrice:198.00,total:39600.00,cat:"Equip. Rede",subcat:"ONT",  model:"TP-Link XC220-G3 AC1200",alerts:[],pendingStatus:"",driveUrl:""},
+    {nf:"178187",date:"2023-07-27",buyer:"Hilink",       supplier:"Maravilha Motos",  qty:1,  unitPrice:15700, total:15700,   cat:"Ativo",     subcat:"Moto",   model:"Moto Honda (verificar modelo)",alerts:[],pendingStatus:"",driveUrl:""},
+    {nf:"8742",  date:"2024-01-31",buyer:"Hilink",       supplier:"GMI Distribuidora",qty:0,  unitPrice:0,     total:8840.00, cat:"Equip. Rede",subcat:"ONT",  model:"TP-Link (qtd a verificar)",alerts:["verificar_qtd"],pendingStatus:"Aberta",driveUrl:""},
+    {nf:"11639", date:"2024-10-31",buyer:"Hilink",       supplier:"GMI Distribuidora",qty:200,unitPrice:161.99,total:32398.00,cat:"Equip. Rede",subcat:"ONT",  model:"TP-Link XC220-G3 XPON AC1200",alerts:[],pendingStatus:"",driveUrl:""},
+    {nf:"12766", date:"2025-01-29",buyer:"Hilink",       supplier:"GMI Distribuidora",qty:0,  unitPrice:0,     total:14020.98,cat:"Equip. Rede",subcat:"ONT",  model:"TP-Link (qtd a verificar)",alerts:["verificar_qtd"],pendingStatus:"Aberta",driveUrl:""},
+    {nf:"13314", date:"2025-03-10",buyer:"Hilink",       supplier:"GMI Distribuidora",qty:100,unitPrice:168.77,total:16876.87,cat:"Equip. Rede",subcat:"ONT",  model:"TP-Link XC220-G3 XPON AC1200",alerts:[],pendingStatus:"",driveUrl:""},
+    {nf:"13356", date:"2025-03-11",buyer:"Hilink",       supplier:"GMI Distribuidora",qty:100,unitPrice:168.77,total:16876.87,cat:"Equip. Rede",subcat:"ONT",  model:"TP-Link XC220-G3 XPON AC1200",alerts:[],pendingStatus:"",driveUrl:""},
+    {nf:"13427", date:"2025-03-17",buyer:"Hilink",       supplier:"GMI Distribuidora",qty:0,  unitPrice:0,     total:288.05,  cat:"Equip. Rede",subcat:"Acessório",model:"Acessório (verificar)",alerts:["verificar_qtd"],pendingStatus:"Aberta",driveUrl:""},
+    {nf:"13606", date:"2025-03-27",buyer:"Hilink",       supplier:"GMI Distribuidora",qty:0,  unitPrice:0,     total:969.78,  cat:"Equip. Rede",subcat:"Acessório",model:"Acessório (verificar)",alerts:["verificar_qtd"],pendingStatus:"Aberta",driveUrl:""},
+    {nf:"13623", date:"2025-03-27",buyer:"P&B Telecom",  supplier:"GMI Distribuidora",qty:1,  unitPrice:229.29,total:229.29,  cat:"Equip. Rede",subcat:"Switch",model:"TP-Link TL-SG1005P Switch 5P",alerts:[],pendingStatus:"",driveUrl:""},
+    {nf:"1367450",date:"2025-03-26",buyer:"Hilink",      supplier:"Renault do Brasil", qty:1,  unitPrice:71704.80,total:71704.80,cat:"Ativo",  subcat:"Veículo",model:"Renault (placa a confirmar)",alerts:[],pendingStatus:"",driveUrl:""},
+    {nf:"1370048",date:"2025-03-28",buyer:"Hilink",      supplier:"Renault do Brasil", qty:1,  unitPrice:71704.80,total:71704.80,cat:"Ativo",  subcat:"Veículo",model:"Renault (placa a confirmar)",alerts:[],pendingStatus:"",driveUrl:""},
+    {nf:"14224", date:"2025-05-09",buyer:"Hilink",       supplier:"GMI Distribuidora",qty:0,  unitPrice:0,     total:25548.05,cat:"Equip. Rede",subcat:"ONT",  model:"TP-Link (qtd a verificar)",alerts:["verificar_qtd"],pendingStatus:"Aberta",driveUrl:""},
+    {nf:"14236", date:"2025-05-12",buyer:"Hilink",       supplier:"GMI Distribuidora",qty:0,  unitPrice:0,     total:25548.01,cat:"Equip. Rede",subcat:"ONT",  model:"TP-Link (qtd a verificar)",alerts:["verificar_qtd"],pendingStatus:"Aberta",driveUrl:""},
+    {nf:"14316", date:"2025-05-15",buyer:"Hilink",       supplier:"GMI Distribuidora",qty:0,  unitPrice:0,     total:25548.01,cat:"Equip. Rede",subcat:"ONT",  model:"TP-Link (qtd a verificar)",alerts:["verificar_qtd"],pendingStatus:"Aberta",driveUrl:""},
+    {nf:"14317", date:"2025-05-15",buyer:"Hilink",       supplier:"GMI Distribuidora",qty:0,  unitPrice:0,     total:25548.05,cat:"Equip. Rede",subcat:"ONT",  model:"TP-Link (qtd a verificar)",alerts:["verificar_qtd"],pendingStatus:"Aberta",driveUrl:""},
+    {nf:"14343", date:"2025-05-16",buyer:"Hilink",       supplier:"GMI Distribuidora",qty:200,unitPrice:153.95,total:30790.14,cat:"Equip. Rede",subcat:"ONT",  model:"TP-Link XC220-G3 XPON AC1200",alerts:["pending_item"],pendingStatus:"",driveUrl:""},
+    {nf:"14349", date:"2025-05-19",buyer:"P&B Telecom",  supplier:"GMI Distribuidora",qty:200,unitPrice:155.37,total:31073.36,cat:"Equip. Rede",subcat:"ONT",  model:"TP-Link XC220-G3 XPON AC1200",alerts:[],pendingStatus:"",driveUrl:""},
+    {nf:"1382440",date:"2025-05-22",buyer:"Hilink",      supplier:"Renault do Brasil", qty:1,  unitPrice:110845.40,total:110845.40,cat:"Ativo",subcat:"Veículo",model:"Renault (placa a confirmar)",alerts:[],pendingStatus:"",driveUrl:""},
+    {nf:"15207", date:"2025-07-22",buyer:"P&B Telecom",  supplier:"GMI Distribuidora",qty:400,unitPrice:146.10,total:58441.28,cat:"Equip. Rede",subcat:"ONT",  model:"TP-Link XC220-G3 XPON AC1200",alerts:[],pendingStatus:"",driveUrl:""},
+    {nf:"15829", date:"2025-08-29",buyer:"Hilink",       supplier:"GMI Distribuidora",qty:2,  unitPrice:146.01,total:292.01,  cat:"Equip. Rede",subcat:"Mesh", model:"TP-Link HC220-G5 Mesh AC1200",alerts:[],pendingStatus:"",driveUrl:""},
+    {nf:"16283", date:"2025-09-29",buyer:"Hilink",       supplier:"GMI Distribuidora",qty:30, unitPrice:141.20,total:4236.02, cat:"Equip. Rede",subcat:"Mesh", model:"TP-Link HC220-G5 Mesh AC1200",alerts:[],pendingStatus:"",driveUrl:""},
+    {nf:"16459", date:"2025-10-10",buyer:"Hilink",       supplier:"GMI Distribuidora",qty:0,  unitPrice:0,     total:659.54,  cat:"Equip. Rede",subcat:"Acessório",model:"Acessório (verificar)",alerts:["verificar_qtd"],pendingStatus:"Aberta",driveUrl:""},
+    {nf:"16479", date:"2025-10-10",buyer:"Hilink",       supplier:"GMI Distribuidora",qty:200,unitPrice:157.17,total:31433.28,cat:"Equip. Rede",subcat:"ONT",  model:"TP-Link XC220-G3 XPON AC1200",alerts:[],pendingStatus:"",driveUrl:""},
+    {nf:"16746", date:"2025-10-28",buyer:"Hilink",       supplier:"GMI Distribuidora",qty:400,unitPrice:157.17,total:62866.56,cat:"Equip. Rede",subcat:"ONT",  model:"TP-Link XC220-G3 XPON AC1200",alerts:["missing_nf"],pendingStatus:"Aberta",driveUrl:""},
+    {nf:"17048", date:"2025-11-17",buyer:"Hilink",       supplier:"GMI Distribuidora",qty:5,  unitPrice:0,     total:1268.77, cat:"Equip. Rede",subcat:"Misto",model:"NF Mista: ONT AX3000 + Mesh + AP",alerts:["reclassify"],pendingStatus:"Aberta",driveUrl:""},
+    {nf:"17961", date:"2026-01-22",buyer:"Hilink",       supplier:"GMI Distribuidora",qty:61, unitPrice:152.42,total:9297.41, cat:"Equip. Rede",subcat:"ONT",  model:"TP-Link XC220-G3 XPON AC1200",alerts:[],pendingStatus:"",driveUrl:""},
+    {nf:"18028", date:"2026-01-28",buyer:"Hilink",       supplier:"GMI Distribuidora",qty:439,unitPrice:157.34,total:69073.75,cat:"Equip. Rede",subcat:"ONT",  model:"TP-Link XC220-G3 XPON AC1200",alerts:["missing_nf"],pendingStatus:"Aberta",driveUrl:""},
+  ];
+
+  // ── STEP 1: Carregar demo AGORA, sem esperar API ──
+  DEMO.forEach(r => RAW.push(r));
+  RAW.sort((a,b) => a.date.localeCompare(b.date));
+  document.getElementById('data-status').textContent = '35 NFs (dados locais) · buscando atualização…';
+  hideLoader();
+  renderAll();
+
+  // ── STEP 2: Tentar buscar dados reais da API em background ──
+  if (API_URL.includes('COLE_A_URL')) {
+    document.getElementById('data-status').textContent = '35 NFs (modo demo — API não configurada)';
     return;
   }
-  const loaderEl = document.getElementById('page-loader');
-  if (loaderEl) loaderEl.style.display = 'none';
-  renderAll();
+
+  try {
+    const qs  = new URLSearchParams({ action:'getNFs', token: HL_TOKEN }).toString();
+    const ctrl = new AbortController();
+    const tid  = setTimeout(() => ctrl.abort(), 15000);
+
+    const resp = await fetch(API_URL + '?' + qs, { signal: ctrl.signal });
+    clearTimeout(tid);
+
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+
+    const text = await resp.text();
+    const data = JSON.parse(text);
+
+    if (!data.success) {
+      if (data.error && (data.error.includes('autorizado') || data.error.includes('token'))) {
+        sessionStorage.clear();
+        window.location.href = 'index.html';
+        return;
+      }
+      throw new Error(data.error || 'Erro na API');
+    }
+
+    // ── STEP 3: Substituir demo pelos dados reais ──
+    RAW.length = 0;
+    data.nfs.forEach(n => {
+      RAW.push({
+        nf:           String(n.nf),
+        date:         (n.date ? String(n.date).substring(0, 10) : ''),
+        buyer:        n.buyer        || '—',
+        supplier:     n.supplier     || '—',
+        qty:          Number(n.qty)  || 0,
+        unitPrice:    Number(n.unitPrice) || 0,
+        total:        Number(n.total)     || 0,
+        cat:          n.cat          || 'Equip. Rede',
+        subcat:       n.subcat       || '',
+        model:        n.model        || '—',
+        alerts:       n.alerts       ? String(n.alerts).split(',').filter(Boolean) : [],
+        pendingStatus:n.pendingStatus|| '',
+        driveUrl:     n.driveUrl     || '',
+      });
+    });
+    RAW.sort((a,b) => a.date.localeCompare(b.date));
+    document.getElementById('data-status').textContent = RAW.length + ' NFs carregadas do Sheets';
+    renderAll();
+
+  } catch(e) {
+    const msg = e.name === 'AbortError'
+      ? 'API demorou mais de 15s — exibindo dados locais'
+      : 'API indisponível (' + e.message + ') — exibindo dados locais';
+    document.getElementById('data-status').textContent = msg;
+    // Dashboard já está visível com dados demo — não trava mais
+  }
 }
 // ─────────────────────────────────────────────
 // FILTER STATE
@@ -2452,27 +2468,8 @@ Chart.defaults.font.family = "'JetBrains Mono', monospace";
 // Set user info in header
 document.getElementById('user-name-label').textContent = HL_NAME || HL_EMAIL;
 if (HL_ROLE === 'admin') document.getElementById('btn-admin').style.display = 'block';
-// Hard failsafe: always hide loader after 20s no matter what
-const _loaderFailsafe = setTimeout(() => {
-  const loader = document.getElementById('page-loader');
-  if (loader && loader.style.display !== 'none') {
-    loader.innerHTML = `
-      <div style="text-align:center;padding:32px;max-width:460px">
-        <div style="font-size:32px;margin-bottom:12px">⏱️</div>
-        <div style="font-size:15px;font-weight:700;color:#1a2535;margin-bottom:8px">Tempo esgotado</div>
-        <div style="font-size:13px;color:#4a5f7a;margin-bottom:20px">
-          O Apps Script não respondeu em 20 segundos.<br>
-          Verifique se ele foi reimplantado corretamente.
-        </div>
-        <button onclick="location.reload()" style="background:#1a6bc4;color:#fff;border:none;border-radius:8px;padding:10px 24px;font-size:13px;font-weight:600;cursor:pointer;margin-right:8px">↺ Tentar novamente</button>
-        <a href="index.html" style="background:#f4f7fb;color:#4a5f7a;border:1px solid #d4dde9;border-radius:8px;padding:10px 20px;font-size:13px;text-decoration:none;display:inline-block">Fazer login</a>
-      </div>`;
-    loader.style.display = 'flex';
-  }
-}, 20000);
-
-// Load data from Google Sheets (or demo if not configured)
-loadFromAPI().then(() => clearTimeout(_loaderFailsafe));
+// Carregar dados (demo imediato + API em background)
+loadFromAPI();
 </script>
 
 <!-- ADMIN MODAL: Gerenciar Usuários -->
