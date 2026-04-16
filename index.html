@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build: 2026-04-16 · fix: filtros ONT dinâmicos + upload XML + savePending offline + responsável pré-preenchido + anexos fallback -->
+<!-- build: 2026-04-16 · fix: CORS preflight removido (sem Content-Type no POST) + filtros ONT dinâmicos + XML + savePending offline + responsável pré-preenchido -->
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
@@ -2124,7 +2124,7 @@ async function extractWithAI(b64, mimeType, fileName) {
     // Route through Apps Script (server-side, no CORS)
     const resp = await fetch(API_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      // no Content-Type = no CORS preflight
       body: JSON.stringify({
         action:   'extractNF',
         token:    HL_TOKEN,
@@ -2249,8 +2249,7 @@ async function autoSave() {
     try {
       const resp = await fetch(API_URL, {
         method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({
+          body: JSON.stringify({
           action:'addNF', token: HL_TOKEN, nf: newRow,
           fileB64:  uploadState.fileB64,
           fileMime: uploadState.fileMime,
@@ -2266,7 +2265,7 @@ async function autoSave() {
         if (!confirmed) { newRow.driveUrl = result.driveUrl; }
         else {
           // Retry with forceReplace
-          const resp2 = await fetch(API_URL, { method:'POST', headers:{'Content-Type':'application/json'},
+          const resp2 = await fetch(API_URL, { method:'POST',
             body: JSON.stringify({ action:'addNF', token:HL_TOKEN, nf:newRow,
               fileB64:uploadState.fileB64, fileMime:uploadState.fileMime,
               fileName:uploadState.fileName, forceReplace:true }) });
@@ -2372,8 +2371,7 @@ async function confirmAndSave() {
     try {
       const resp = await fetch(API_URL, {
         method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({
+          body: JSON.stringify({
           action:'addNF', token: HL_TOKEN, nf: newRow,
           fileB64:  uploadState.fileB64,
           fileMime: uploadState.fileMime,
@@ -2542,7 +2540,6 @@ async function savePending(nf, idx) {
   try {
     const resp = await fetch(API_URL, {
       method:'POST',
-      headers:{'Content-Type':'application/json'},
       body: JSON.stringify({ action:'updatePending', token:HL_TOKEN, nf, status, responsible, obs })
     });
     if (!resp.ok) throw new Error('HTTP ' + resp.status);
@@ -2681,17 +2678,29 @@ document.getElementById('admin-overlay').addEventListener('click', e => {
 });
 
 async function apiPost(payload) {
-  const resp = await fetch(API_URL, {
-    method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({ ...payload, token: HL_TOKEN })
-  });
-  return resp.json();
+  // No Content-Type header → no CORS preflight, body still reaches Apps Script as JSON
+  try {
+    const resp = await fetch(API_URL, {
+      method:'POST',
+      body: JSON.stringify({ ...payload, token: HL_TOKEN })
+    });
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    return resp.json();
+  } catch(e) {
+    console.warn('apiPost failed:', e.message);
+    return { success: false, error: 'Sem conexão com o servidor. Verifique se o Apps Script está ativo.' };
+  }
 }
 async function apiGet(params) {
-  const qs = new URLSearchParams({ ...params, token: HL_TOKEN }).toString();
-  const resp = await fetch(API_URL + '?' + qs);
-  return resp.json();
+  try {
+    const qs = new URLSearchParams({ ...params, token: HL_TOKEN }).toString();
+    const resp = await fetch(API_URL + '?' + qs);
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    return resp.json();
+  } catch(e) {
+    console.warn('apiGet failed:', e.message);
+    return { success: false, error: 'Sem conexão com o servidor.' };
+  }
 }
 
 async function changeMyPassword() {
