@@ -1208,6 +1208,7 @@ async function loadFromAPI() {
       const data = await resp.json();
       if (!data.success) {
         if (data.error && (data.error.includes('autorizado') || data.error.includes('token'))) {
+          document.getElementById('page-loader').style.display = 'none';
           sessionStorage.clear();
           window.location.href = 'index.html';
           return;
@@ -1257,7 +1258,8 @@ async function loadFromAPI() {
     console.error(e);
     return;
   }
-  document.getElementById('page-loader').style.display = 'none';
+  const loaderEl = document.getElementById('page-loader');
+  if (loaderEl) loaderEl.style.display = 'none';
   renderAll();
 }
 // ─────────────────────────────────────────────
@@ -2450,8 +2452,27 @@ Chart.defaults.font.family = "'JetBrains Mono', monospace";
 // Set user info in header
 document.getElementById('user-name-label').textContent = HL_NAME || HL_EMAIL;
 if (HL_ROLE === 'admin') document.getElementById('btn-admin').style.display = 'block';
+// Hard failsafe: always hide loader after 20s no matter what
+const _loaderFailsafe = setTimeout(() => {
+  const loader = document.getElementById('page-loader');
+  if (loader && loader.style.display !== 'none') {
+    loader.innerHTML = `
+      <div style="text-align:center;padding:32px;max-width:460px">
+        <div style="font-size:32px;margin-bottom:12px">⏱️</div>
+        <div style="font-size:15px;font-weight:700;color:#1a2535;margin-bottom:8px">Tempo esgotado</div>
+        <div style="font-size:13px;color:#4a5f7a;margin-bottom:20px">
+          O Apps Script não respondeu em 20 segundos.<br>
+          Verifique se ele foi reimplantado corretamente.
+        </div>
+        <button onclick="location.reload()" style="background:#1a6bc4;color:#fff;border:none;border-radius:8px;padding:10px 24px;font-size:13px;font-weight:600;cursor:pointer;margin-right:8px">↺ Tentar novamente</button>
+        <a href="index.html" style="background:#f4f7fb;color:#4a5f7a;border:1px solid #d4dde9;border-radius:8px;padding:10px 20px;font-size:13px;text-decoration:none;display:inline-block">Fazer login</a>
+      </div>`;
+    loader.style.display = 'flex';
+  }
+}, 20000);
+
 // Load data from Google Sheets (or demo if not configured)
-loadFromAPI();
+loadFromAPI().then(() => clearTimeout(_loaderFailsafe));
 </script>
 
 <!-- ADMIN MODAL: Gerenciar Usuários -->
