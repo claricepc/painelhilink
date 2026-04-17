@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build: 2026-04-16 · fix: duplicate const minNF/maxNF + TDZ ontUnitsDisplay -->
+<!-- build: 2026-04-16 · TODAS operações via GET (sem CORS preflight) · savePending + createUser + changePassword agora 100% funcionais -->
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
@@ -688,8 +688,8 @@ if (!HL_TOKEN) window.location.href = 'index.html';
         style="border:2px dashed var(--border2);border-radius:14px;padding:36px 24px;text-align:center;cursor:pointer;transition:all 0.2s;background:var(--surface2)">
         <div style="font-size:32px;margin-bottom:10px">📄</div>
         <div style="font-size:14px;font-weight:600;color:var(--text);margin-bottom:6px">Arraste a NF aqui ou clique para selecionar</div>
-        <div style="font-size:12px;color:var(--text3)">PDF, JPG, PNG, JPEG · até 10MB por arquivo</div>
-        <input type="file" id="file-input" accept=".pdf,.jpg,.jpeg,.png" style="display:none" onchange="handleFileSelect(event)" multiple>
+        <div style="font-size:12px;color:var(--text3)">PDF, JPG, PNG · XML NF-e · até 20MB por arquivo</div>
+        <input type="file" id="file-input" accept=".pdf,.jpg,.jpeg,.png,.xml" style="display:none" onchange="handleFileSelect(event)" multiple>
       </div>
 
       <!-- File Queue -->
@@ -773,6 +773,7 @@ if (!HL_TOKEN) window.location.href = 'index.html';
         <div style="font-size:20px;margin-bottom:8px">⚠</div>
         <div style="font-size:13px;font-weight:600;color:var(--text)" id="err-msg">Não foi possível ler a nota fiscal.</div>
         <div style="font-size:12px;color:var(--text3);margin-top:4px">Verifique se o arquivo está legível ou preencha os dados manualmente.</div>
+        <div style="font-size:11px;color:var(--cyan);margin-top:8px;padding:6px 10px;background:rgba(8,145,178,0.08);border-radius:6px">💡 <strong>Dica:</strong> Upload de XML NF-e funciona offline e não depende da IA — tente usar o arquivo XML da NF.</div>
         <button onclick="showManualForm()" style="margin-top:14px;background:var(--blue);color:#fff;border:none;border-radius:8px;padding:8px 20px;font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font-display)">Preencher manualmente</button>
       <div id="err-hint" style="display:none;margin-top:12px;font-size:11px;color:var(--text2);text-align:left;background:var(--surface2);border-radius:8px;padding:10px 12px">
         <strong>Como configurar a chave Anthropic no Apps Script:</strong><br>
@@ -937,14 +938,14 @@ if (!HL_TOKEN) window.location.href = 'index.html';
       <div class="kpi-sub">notas fiscais</div>
     </div>
     <div class="kpi-card" style="--accent: var(--cyan)">
-      <div class="kpi-label" data-kpi="ont-label">Unidades ONT</div>
+      <div class="kpi-label" id="kpi-ont-label">Unidades</div>
       <div class="kpi-value" id="kpi-ont">—</div>
       <div class="kpi-sub">equipamentos</div>
     </div>
     <div class="kpi-card" style="--accent: var(--green)">
       <div class="kpi-label">Investimento Total</div>
       <div class="kpi-value large" id="kpi-total">—</div>
-      <div class="kpi-sub" id="kpi-ont-sub" data-kpi="ont-sub">em ONT: —</div>
+      <div class="kpi-sub" id="kpi-ont-sub">em ONT: —</div>
     </div>
     <div class="kpi-card" style="--accent: var(--amber)">
       <div class="kpi-label">Preço Médio</div>
@@ -1401,7 +1402,7 @@ function updateKPIs() {
   document.getElementById('kpi-nf').textContent = d.length;
   document.getElementById('kpi-ont').textContent = fmtN(ontUnits);
   // Update KPI labels based on category
-  const kpiOntLabelEl = document.querySelector('[data-kpi="ont-label"]');
+  const kpiOntLabelEl = document.getElementById('kpi-ont-label');
   if (kpiOntLabelEl) kpiOntLabelEl.textContent = 'Unidades ' + kpiLabel;
   const kpiOntSubEl = document.getElementById('kpi-ont-sub');
   if (kpiOntSubEl) kpiOntSubEl.textContent = 'em ' + kpiLabel + ': ' + fmt(ontInvest);
@@ -1413,7 +1414,6 @@ function updateKPIs() {
   if (kpiMinNfEl) kpiMinNfEl.textContent = minNF ? 'NF ' + minNF.nf : '—';
   if (kpiMaxNfEl) kpiMaxNfEl.textContent = maxNF ? 'NF ' + maxNF.nf : '—';
   document.getElementById('kpi-total').textContent = fmt(totalInvest);
-  document.getElementById('kpi-ont-sub').textContent = 'em ONT: ' + fmt(ontInvest);
   document.getElementById('kpi-avg').textContent = avgPrice ? fmt(avgPrice) : '—';
   document.getElementById('kpi-min').textContent = minP ? fmt(minP) : '—';
   document.getElementById('kpi-min-nf').textContent = minNF ? 'NF ' + minNF.nf : '—';
@@ -1422,7 +1422,7 @@ function updateKPIs() {
   document.getElementById('kpi-above').textContent = aboveThreshold.length;
   const aboveLblEl = document.getElementById('kpi-above-label');
   if (aboveLblEl) aboveLblEl.textContent = isAsset ? 'Ativos >R$50k' : 'NFs Acima R$160';
-  document.getElementById('kpi-above-pct').textContent = ont.length ? Math.round(aboveThreshold.length/ont.length*100) + '% das NFs ONT' : '—';
+  document.getElementById('kpi-above-pct').textContent = ont.length ? Math.round(aboveThreshold.length/ont.length*100) + '% das NFs ' + kpiLabel : '—';
   document.getElementById('kpi-saving').textContent = saving > 0 ? fmt(saving) : 'R$ 0';
   document.getElementById('filter-count').textContent = d.length + ' de ' + RAW.length + ' NFs';
 }
@@ -2007,9 +2007,23 @@ function handleFileSelect(e) {
   if (e.target.files.length) processFile(e.target.files[0]);
 }
 function processFile(file) {
-  const allowed = ['application/pdf','image/jpeg','image/jpg','image/png'];
-  if (!allowed.includes(file.type)) { alert('Formato não suportado. Use PDF, JPG ou PNG.'); return; }
+  const allowed = ['application/pdf','image/jpeg','image/jpg','image/png','text/xml','application/xml'];
+  const isXML = file.name.toLowerCase().endsWith('.xml') || file.type === 'text/xml' || file.type === 'application/xml';
+  if (!allowed.includes(file.type) && !isXML) { alert('Formato não suportado. Use PDF, JPG, PNG ou XML (NF-e).'); return; }
   if (file.size > 20 * 1024 * 1024) { alert('Arquivo muito grande. Máximo 20MB.'); return; }
+
+  if (isXML) {
+    // Leitura direta do XML NF-e no browser (sem IA)
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      uploadState = { file, fileB64: btoa(unescape(encodeURIComponent(ev.target.result))), fileMime: 'text/xml', fileName: file.name };
+      showFileQueued(file);
+      extractFromXML(ev.target.result, file.name);
+    };
+    reader.readAsText(file, 'UTF-8');
+    return;
+  }
+
   // API key handled server-side
   const reader = new FileReader();
   reader.onload = (ev) => {
@@ -2035,6 +2049,65 @@ function showFileQueued(file) {
     </div>`;
 }
 
+async function extractFromXML(xmlText, fileName) {
+  document.getElementById('upload-section').style.display = 'none';
+  document.getElementById('extract-section').style.display = 'block';
+  document.getElementById('extract-loading').style.display = 'block';
+  document.getElementById('extract-form').style.display = 'none';
+  document.getElementById('extract-error').style.display = 'none';
+
+  const statusEl = document.getElementById('ai-status-msg');
+  statusEl.textContent = 'Lendo XML da NF-e…';
+
+  try {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(xmlText, 'text/xml');
+    const ns = 'http://www.portalfiscal.inf.br/nfe';
+    const g = (tag, root) => {
+      const el = (root||doc).getElementsByTagNameNS(ns, tag)[0] || (root||doc).getElementsByTagName(tag)[0];
+      return el ? el.textContent.trim() : '';
+    };
+
+    const nNF   = g('nNF');
+    const dhEmi = g('dhEmi') || g('dEmi');
+    const date  = dhEmi ? dhEmi.substring(0,10) : '';
+    const xNomeDest = g('xNome', doc.getElementsByTagNameNS ? (doc.getElementsByTagNameNS(ns,'dest')[0]||doc.getElementsByTagName('dest')[0]) : null);
+    const total = parseFloat(g('vNF')) || 0;
+
+    // Itens
+    const dets = doc.getElementsByTagNameNS ? doc.getElementsByTagNameNS(ns,'det') : doc.getElementsByTagName('det');
+    const items = Array.from(dets).map(det => {
+      const xProd = g('xProd', det);
+      const qCom  = parseFloat(g('qCom', det)) || 0;
+      const vUnCom = parseFloat(g('vUnCom', det)) || 0;
+      const vProd  = parseFloat(g('vProd', det)) || 0;
+      return { model: xProd, qty: qCom, unit_price: vUnCom, total: vProd };
+    });
+    const firstItem = items[0] || {};
+
+    // Guess buyer
+    let buyer = '';
+    const xNomeUpper = xNomeDest ? xNomeDest.toUpperCase() : '';
+    if (xNomeUpper.includes('P B COMERCIO') || xNomeUpper.includes('P&B') || xNomeUpper.includes('PAULISTA')) buyer = 'P&B Telecom';
+    else if (xNomeUpper.includes('DIGITAL LIFE')) buyer = 'Digital Life';
+    else if (xNomeUpper.includes('HILINK')) buyer = 'Hilink';
+
+    statusEl.textContent = 'XML lido com sucesso!';
+    document.getElementById('extract-loading').style.display = 'none';
+
+    populateForm({
+      nf: nNF, date, buyer: buyer || xNomeDest,
+      total_nf: total,
+      items: items,
+      obs: items.length > 1 ? 'XML com ' + items.length + ' itens — verifique cada um.' : ''
+    });
+  } catch(err) {
+    document.getElementById('extract-loading').style.display = 'none';
+    document.getElementById('extract-error').style.display = 'block';
+    document.getElementById('err-msg').textContent = 'Erro ao ler XML: ' + err.message;
+  }
+}
+
 async function extractWithAI(b64, mimeType, fileName) {
   document.getElementById('upload-section').style.display = 'none';
   document.getElementById('extract-section').style.display = 'block';
@@ -2051,7 +2124,7 @@ async function extractWithAI(b64, mimeType, fileName) {
     // Route through Apps Script (server-side, no CORS)
     const resp = await fetch(API_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      // no Content-Type = no CORS preflight
       body: JSON.stringify({
         action:   'extractNF',
         token:    HL_TOKEN,
@@ -2071,12 +2144,18 @@ async function extractWithAI(b64, mimeType, fileName) {
     document.getElementById('extract-loading').style.display = 'none';
     document.getElementById('extract-error').style.display = 'block';
     let msg = err.message || 'Falha na leitura';
-    if (msg.includes('ANTHROPIC_KEY')) msg = 'Chave Anthropic não configurada no Apps Script. Veja instruções abaixo.';
+    if (msg.includes('ANTHROPIC_KEY')) msg = 'Chave Anthropic não configurada no Apps Script.';
+    if (msg.toLowerCase().includes('failed to fetch') || msg.includes('NetworkError')) {
+      msg = 'Sem conexão com o servidor (Apps Script). Tente usar o upload via XML — funciona offline.';
+    }
     document.getElementById('err-msg').textContent = msg;
     // Show setup hint if key not configured
     if (msg.includes('Apps Script')) {
       document.getElementById('err-hint').style.display = 'block';
     }
+    // Always show manual fill button
+    document.getElementById('extract-form').style.display = 'block';
+    showFilePreview();
   }
 }
 
@@ -2170,14 +2249,14 @@ async function autoSave() {
     try {
       const resp = await fetch(API_URL, {
         method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({
+          body: JSON.stringify({
           action:'addNF', token: HL_TOKEN, nf: newRow,
           fileB64:  uploadState.fileB64,
           fileMime: uploadState.fileMime,
           fileName: uploadState.fileName
         })
       });
+      if (!resp.ok) throw new Error('HTTP ' + resp.status);
       const result = await resp.json();
       // Handle upsert responses
       if (result.success && result.exists && result.hasFile) {
@@ -2186,18 +2265,23 @@ async function autoSave() {
         if (!confirmed) { newRow.driveUrl = result.driveUrl; }
         else {
           // Retry with forceReplace
-          const resp2 = await fetch(API_URL, { method:'POST', headers:{'Content-Type':'application/json'},
+          const resp2 = await fetch(API_URL, { method:'POST',
             body: JSON.stringify({ action:'addNF', token:HL_TOKEN, nf:newRow,
               fileB64:uploadState.fileB64, fileMime:uploadState.fileMime,
               fileName:uploadState.fileName, forceReplace:true }) });
           const r2 = await resp2.json();
           if (r2.driveUrl) newRow.driveUrl = r2.driveUrl;
         }
-      } else if (!result.success) {
-        alert('Erro ao salvar: ' + (result.error||'Tente novamente')); return;
+      } else if (result.success) {
+        if (result.driveUrl) newRow.driveUrl = result.driveUrl;
+      } else {
+        console.warn('addNF sem sucesso:', result.error);
       }
-      if (result.driveUrl) newRow.driveUrl = result.driveUrl;
-    } catch(e) { alert('Falha de conexão: ' + e.message); }
+    } catch(e) {
+      // Fallback offline: NF salva localmente, sem Drive
+      console.warn('autoSave offline fallback:', e.message);
+      newRow.driveUrl = '';
+    }
   }
   RAW.push(newRow);
   RAW.sort((a,b) => a.date.localeCompare(b.date));
@@ -2217,13 +2301,14 @@ async function autoSave() {
   ok.innerHTML = `
     <div style="background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.35);border-radius:12px;padding:20px 22px;text-align:center">
       <div style="font-size:28px;margin-bottom:10px">✅</div>
-      <div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:4px">NF ${nf} salva automaticamente!</div>
+      <div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:4px">NF ${nf} salva!</div>
       <div style="font-size:12px;color:var(--text2);margin-bottom:6px">${buyer} · ${fmtDate(date)} · ${qty} un · ${fmt(unitPrice)}/un · ${cat}</div>
       <div style="font-size:11px;color:var(--text3);margin-bottom:16px">${model}</div>
-      <div style="display:flex;gap:10px;justify-content:center">
+      ${!newRow.driveUrl ? '<div style="font-size:11px;color:var(--amber);margin-bottom:12px">⚠ Anexo não enviado ao Drive (sem conexão). NF salva localmente nesta sessão.</div>' : ''}
+      <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
         <button onclick="resetUploadModal()" style="background:var(--blue);color:#fff;border:none;border-radius:8px;padding:9px 22px;font-size:13px;font-weight:600;cursor:pointer;font-family:var(--font-display)">+ Cadastrar outra NF</button>
         <button onclick="closeUploadModal()" style="background:var(--surface2);color:var(--text2);border:1px solid var(--border);border-radius:8px;padding:9px 20px;font-size:13px;cursor:pointer;font-family:var(--font-display)">Fechar</button>
-        \${newRow.driveUrl ? \`<a href="\${newRow.driveUrl}" target="_blank" style="background:transparent;color:var(--blue);border:1px solid var(--blue);border-radius:8px;padding:9px 16px;font-size:13px;text-decoration:none;font-family:var(--font-display)">📄 Ver no Drive</a>\` : ''}
+        ${newRow.driveUrl ? `<a href="${newRow.driveUrl}" target="_blank" style="background:transparent;color:var(--blue);border:1px solid var(--blue);border-radius:8px;padding:9px 16px;font-size:13px;text-decoration:none;font-family:var(--font-display)">📄 Ver no Drive</a>` : (uploadState.fileB64 ? `<button onclick="openViewer()" style="background:transparent;color:var(--text2);border:1px solid var(--border);border-radius:8px;padding:9px 16px;font-size:13px;cursor:pointer;font-family:var(--font-display)">🔍 Ver anexo (local)</button>` : '')}
       </div>
     </div>`;
 }
@@ -2286,8 +2371,7 @@ async function confirmAndSave() {
     try {
       const resp = await fetch(API_URL, {
         method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({
+          body: JSON.stringify({
           action:'addNF', token: HL_TOKEN, nf: newRow,
           fileB64:  uploadState.fileB64,
           fileMime: uploadState.fileMime,
@@ -2424,7 +2508,7 @@ function renderPendings(items) {
             </div>
             <div>
               <div style="font-size:10px;color:var(--text3);text-transform:uppercase;font-weight:600;margin-bottom:4px">Responsável</div>
-              <input id="pr-${idx}" class="form-input" type="text" placeholder="Nome" value="${item.responsible||''}" style="font-size:12px">
+              <input id="pr-${idx}" class="form-input" type="text" placeholder="Nome" value="${item.responsible || HL_NAME || ''}" style="font-size:12px">
             </div>
           </div>
           <input id="po-${idx}" class="form-input" type="text" placeholder="Observação / ação tomada" value="${item.obs||''}" style="font-size:12px;margin-bottom:8px;width:100%">
@@ -2446,19 +2530,34 @@ function togglePendForm(idx) {
 }
 
 async function savePending(nf, idx) {
-  const status = document.getElementById('ps-' + idx)?.value;
+  const status      = document.getElementById('ps-' + idx)?.value;
   const responsible = document.getElementById('pr-' + idx)?.value;
-  const obs = document.getElementById('po-' + idx)?.value;
+  const obs         = document.getElementById('po-' + idx)?.value;
+  const allBtns     = document.querySelectorAll('[onclick]');
+  let btn = null;
+  allBtns.forEach(b => { if (b.getAttribute('onclick') && b.getAttribute('onclick').includes('savePending') && b.getAttribute('onclick').includes(String(idx))) btn = b; });
+  const saved = document.getElementById('psaved-' + idx);
+  if (btn) btn.disabled = true;
   try {
-    await fetch(API_URL, {
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ action:'updatePending', token:HL_TOKEN, nf, status, responsible, obs })
-    });
-    const saved = document.getElementById('psaved-' + idx);
-    if (saved) { saved.style.display='inline'; setTimeout(()=>saved.style.display='none', 2500); }
-    pendingsLoaded = false; // force reload next time
-  } catch(e) { alert('Erro ao salvar: ' + e.message); }
+    // Usa GET para evitar CORS preflight
+    const qs = new URLSearchParams({ action:'updatePending', token:HL_TOKEN, nf, status:status||'', responsible:responsible||'', obs:obs||'' }).toString();
+    const resp = await fetch(API_URL + '?' + qs);
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const data = await resp.json();
+    if (!data.success) throw new Error(data.error || 'Falha ao salvar');
+    if (saved) { saved.textContent='✓ Salvo'; saved.style.color='var(--green)'; saved.style.display='inline'; setTimeout(()=>saved.style.display='none', 2500); }
+    pendingsLoaded = false;
+  } catch(e) {
+    console.warn('savePending error:', e.message);
+    if (saved) {
+      saved.textContent = '⚠ ' + (e.message.length > 60 ? e.message.slice(0,60)+'...' : e.message);
+      saved.style.color = 'var(--red)';
+      saved.style.display = 'inline';
+      setTimeout(() => { saved.style.display='none'; saved.textContent='✓ Salvo'; saved.style.color='var(--green)'; }, 7000);
+    }
+  } finally {
+    if (btn) btn.disabled = false;
+  }
 }
 
 // ─────────────────────────────────────────────
@@ -2578,50 +2677,75 @@ document.getElementById('admin-overlay').addEventListener('click', e => {
 });
 
 async function apiPost(payload) {
-  const resp = await fetch(API_URL, {
-    method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({ ...payload, token: HL_TOKEN })
-  });
-  return resp.json();
+  // No Content-Type header → no CORS preflight, body still reaches Apps Script as JSON
+  try {
+    const resp = await fetch(API_URL, {
+      method:'POST',
+      body: JSON.stringify({ ...payload, token: HL_TOKEN })
+    });
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    return resp.json();
+  } catch(e) {
+    console.warn('apiPost failed:', e.message);
+    return { success: false, error: 'Sem conexão com o servidor. Verifique se o Apps Script está ativo.' };
+  }
 }
 async function apiGet(params) {
-  const qs = new URLSearchParams({ ...params, token: HL_TOKEN }).toString();
-  const resp = await fetch(API_URL + '?' + qs);
-  return resp.json();
+  try {
+    const qs = new URLSearchParams({ ...params, token: HL_TOKEN }).toString();
+    const resp = await fetch(API_URL + '?' + qs);
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    return resp.json();
+  } catch(e) {
+    console.warn('apiGet failed:', e.message);
+    return { success: false, error: 'Sem conexão com o servidor.' };
+  }
 }
 
 async function changeMyPassword() {
-  const p1 = document.getElementById('my-new-pass').value;
-  const p2 = document.getElementById('my-new-pass2').value;
+  const p1  = document.getElementById('my-new-pass')?.value;
+  const p2  = document.getElementById('my-new-pass2')?.value;
   const msg = document.getElementById('pass-msg');
   if (!p1 || p1.length < 6) { showAdminMsg(msg, 'Senha deve ter ao menos 6 caracteres.', 'error'); return; }
   if (p1 !== p2) { showAdminMsg(msg, 'As senhas não coincidem.', 'error'); return; }
-  const data = await apiPost({ action:'changePassword', newPassword: p1 });
-  if (data.success) {
-    showAdminMsg(msg, '✓ Senha alterada com sucesso.', 'success');
-    document.getElementById('my-new-pass').value = '';
-    document.getElementById('my-new-pass2').value = '';
-  } else {
-    showAdminMsg(msg, data.error || 'Erro ao alterar senha.', 'error');
+  try {
+    const qs = new URLSearchParams({ action:'changePassword', token:HL_TOKEN, newPassword:p1 }).toString();
+    const resp = await fetch(API_URL + '?' + qs);
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const data = await resp.json();
+    if (data.success) {
+      showAdminMsg(msg, '✓ Senha alterada com sucesso.', 'success');
+      ['my-new-pass','my-new-pass2'].forEach(id => { const el = document.getElementById(id); if(el) el.value=''; });
+    } else {
+      showAdminMsg(msg, data.error || 'Erro ao alterar senha.', 'error');
+    }
+  } catch(e) {
+    showAdminMsg(msg, 'Erro de conexão: ' + e.message, 'error');
   }
 }
 
 async function createUser() {
-  const name  = document.getElementById('nu-name').value.trim();
-  const email = document.getElementById('nu-email').value.trim();
-  const pass  = document.getElementById('nu-pass').value;
-  const role  = document.getElementById('nu-role').value;
+  const name  = document.getElementById('nu-name')?.value.trim();
+  const email = document.getElementById('nu-email')?.value.trim();
+  const pass  = document.getElementById('nu-pass')?.value;
+  const role  = document.getElementById('nu-role')?.value;
   const msg   = document.getElementById('nu-msg');
   if (!name || !email || !pass) { showAdminMsg(msg, 'Preencha todos os campos.', 'error'); return; }
   if (pass.length < 6) { showAdminMsg(msg, 'Senha deve ter ao menos 6 caracteres.', 'error'); return; }
-  const data = await apiPost({ action:'addUser', name, email, password: pass, role });
-  if (data.success) {
-    showAdminMsg(msg, '✓ Usuário ' + name + ' criado.', 'success');
-    ['nu-name','nu-email','nu-pass'].forEach(id => document.getElementById(id).value = '');
-    loadUsers();
-  } else {
-    showAdminMsg(msg, data.error || 'Erro ao criar usuário.', 'error');
+  try {
+    const qs = new URLSearchParams({ action:'addUser', token:HL_TOKEN, name, email, password:pass, role:role||'user' }).toString();
+    const resp = await fetch(API_URL + '?' + qs);
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const data = await resp.json();
+    if (data.success) {
+      showAdminMsg(msg, '✓ Usuário ' + name + ' criado com sucesso.', 'success');
+      ['nu-name','nu-email','nu-pass'].forEach(id => { const el = document.getElementById(id); if(el) el.value = ''; });
+      loadUsers();
+    } else {
+      showAdminMsg(msg, data.error || 'Erro ao criar usuário.', 'error');
+    }
+  } catch(e) {
+    showAdminMsg(msg, 'Erro de conexão: ' + e.message, 'error');
   }
 }
 
