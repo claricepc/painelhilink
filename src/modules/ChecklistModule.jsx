@@ -68,7 +68,7 @@ export default function ChecklistModule({ user }) {
         await supabase.from('points').insert({
           user_id: user.id,
           action: 'checklist',
-          description: `✅ ${item.item}`,
+          description: item.item,
           points: 10,
         });
       }
@@ -155,8 +155,8 @@ export default function ChecklistModule({ user }) {
           color={pct === 100 ? 'var(--primary)' : 'var(--primary)'}
         />
         {pct === 100 && total > 0 && (
-          <div className="mt-12 text-bold" style={{ textAlign: 'center', color: 'var(--primary)', fontSize: 14 }}>
-            🏆 Dia perfeito! Todos concluídos
+          <div className="mt-12 text-bold" style={{ textAlign: 'center', color: 'var(--primary)', fontSize: 13, letterSpacing: '0.06em' }}>
+            DIA PERFEITO · TODOS CONCLUÍDOS
           </div>
         )}
       </Card>

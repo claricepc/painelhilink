@@ -71,7 +71,7 @@ export default function RankingModule({ user, users }) {
       <div className="podium-grid mb-16">
         <div className="podium-card podium-1">
           <div className="podium-rank">1º · LÍDER</div>
-          <div className="podium-emoji">{leader.emoji}</div>
+          <div className="podium-initial podium-initial--lead">{leader.initial}</div>
           <div className="podium-name">{leader.name}</div>
           <div className="podium-pts">
             {leader.total.toLocaleString('pt-BR')}
@@ -86,7 +86,12 @@ export default function RankingModule({ user, users }) {
 
         <div className="podium-card podium-2">
           <div className="podium-rank">2º</div>
-          <div className="podium-emoji">{second.emoji}</div>
+          <div
+            className="podium-initial"
+            style={{ borderColor: second.color, color: second.color }}
+          >
+            {second.initial}
+          </div>
           <div className="podium-name">{second.name}</div>
           <div className="podium-pts text-sub">
             {second.total.toLocaleString('pt-BR')}
@@ -101,15 +106,15 @@ export default function RankingModule({ user, users }) {
       </div>
 
       <Card variant="subtle" className="mb-16" style={{ textAlign: 'center' }}>
-        {leader.id === user.id ? (
+        {leader.total === second.total ? (
+          <span className="text-sub text-bold">Empate técnico — vai com tudo</span>
+        ) : leader.id === user.id ? (
           <span style={{ color: 'var(--primary)', fontWeight: 700 }}>
-            🔥 Na frente por {(leader.total - second.total).toLocaleString('pt-BR')} pontos
+            Na frente por {(leader.total - second.total).toLocaleString('pt-BR')} pontos
           </span>
-        ) : leader.total === second.total ? (
-          <span className="text-sub text-bold">Empate técnico! Vai com tudo!</span>
         ) : (
           <span style={{ color: 'var(--orange)', fontWeight: 700 }}>
-            💪 {(leader.total - second.total).toLocaleString('pt-BR')} pts pra virar o jogo
+            {(leader.total - second.total).toLocaleString('pt-BR')} pts pra virar o jogo
           </span>
         )}
       </Card>

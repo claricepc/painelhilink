@@ -16,8 +16,8 @@ import {
 import './index.css';
 
 const USERS = {
-  rafael:  { id: '11111111-1111-1111-1111-111111111111', name: 'Rafael',  emoji: '🦁', color: '#c5ff3d' },
-  clarice: { id: '22222222-2222-2222-2222-222222222222', name: 'Clarice', emoji: '🌸', color: '#ff7aa7' },
+  rafael:  { id: '11111111-1111-1111-1111-111111111111', name: 'Rafael',  initial: 'R', color: '#c5ff3d' },
+  clarice: { id: '22222222-2222-2222-2222-222222222222', name: 'Clarice', initial: 'C', color: '#ff7aa7' },
 };
 
 const TABS = [
@@ -66,7 +66,7 @@ export default function App() {
                   setUserId(key);
                 }}
               >
-                <span className="user-emoji">{u.emoji}</span>
+                <span className="user-initial">{u.initial}</span>
                 <span className="user-name">{u.name}</span>
                 <span className="user-sub">Entrar</span>
               </button>
@@ -81,7 +81,7 @@ export default function App() {
     <div className="app">
       <header className="app-header">
         <div className="header-user" style={{ '--user-color': user.color }}>
-          <div className="header-avatar">{user.emoji}</div>
+          <div className="header-avatar">{user.initial}</div>
           <div className="header-name">
             <span className="greet">Olá,</span>
             <span className="name">{user.name}</span>

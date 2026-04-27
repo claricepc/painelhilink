@@ -203,10 +203,21 @@ input, textarea, select { font-family: inherit; }
 
 .user-card:hover::after { opacity: 0.35; }
 
-.user-emoji {
-  font-size: 40px;
-  line-height: 1;
-  filter: drop-shadow(0 4px 12px rgba(0,0,0,0.4));
+.user-initial {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: var(--bg);
+  border: 2px solid var(--user-color, var(--primary));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26px;
+  font-weight: 900;
+  color: var(--user-color, var(--primary));
+  letter-spacing: -0.02em;
+  box-shadow: 0 0 0 4px rgba(255,255,255,0.02),
+              0 8px 24px rgba(0,0,0,0.4);
 }
 .user-name {
   font-size: 16px;
@@ -256,15 +267,18 @@ input, textarea, select { font-family: inherit; }
 }
 
 .header-avatar {
-  width: 36px;
-  height: 36px;
+  width: 38px;
+  height: 38px;
   border-radius: 50%;
   background: var(--card);
   border: 1.5px solid var(--user-color, var(--primary));
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 18px;
+  font-size: 15px;
+  font-weight: 900;
+  color: var(--user-color, var(--primary));
+  letter-spacing: -0.02em;
 }
 
 .header-name {
@@ -869,10 +883,26 @@ input, textarea, select { font-family: inherit; }
 
 .podium-1 .podium-rank { opacity: 0.65; }
 
-.podium-emoji {
-  font-size: 40px;
-  margin: 6px 0 2px;
-  filter: drop-shadow(0 4px 12px rgba(0,0,0,0.3));
+.podium-initial {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  margin: 10px auto 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  background: rgba(0,0,0,0.18);
+  color: var(--primary-on);
+  border: 2px solid currentColor;
+}
+
+.podium-initial--lead {
+  color: var(--primary-on);
+  background: rgba(10,10,10,0.18);
+  border-color: rgba(10,10,10,0.3);
 }
 
 .podium-name {

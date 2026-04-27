@@ -82,7 +82,7 @@ export default function WaterModule({ user }) {
 
       {goalReached && (
         <div className="rt-card accent mb-16" style={{ textAlign: 'center', fontWeight: 800 }}>
-          🎉 Meta diária atingida! +20 pts
+          META DIÁRIA ATINGIDA · +20 PTS
         </div>
       )}
 

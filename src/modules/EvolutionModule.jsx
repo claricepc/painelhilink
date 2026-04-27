@@ -163,7 +163,7 @@ export default function EvolutionModule({ user }) {
           </div>
           {latest.notes && (
             <Card variant="subtle" className="mb-16">
-              <div className="text-sub text-sm">📝 {latest.notes}</div>
+              <div className="text-sub text-sm">{latest.notes}</div>
             </Card>
           )}
         </>
