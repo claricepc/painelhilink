@@ -1,14 +1,11 @@
 -- FitDuo — Supabase Schema
 -- Execute este arquivo no SQL Editor do Supabase
 
--- Extensão para UUID
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-
 -- ================================================
 -- TABELA: users
 -- ================================================
 CREATE TABLE IF NOT EXISTS users (
-  id            UUID         PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id            UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
   name          TEXT         NOT NULL,
   avatar_emoji  TEXT         DEFAULT '👤',
   color         TEXT         DEFAULT '#7c6ff7',
@@ -25,7 +22,7 @@ ON CONFLICT (id) DO NOTHING;
 -- TABELA: workout_plans
 -- ================================================
 CREATE TABLE IF NOT EXISTS workout_plans (
-  id          UUID         PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id          UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id     UUID         REFERENCES users(id) ON DELETE CASCADE,
   name        TEXT         NOT NULL,
   description TEXT,
@@ -37,7 +34,7 @@ CREATE TABLE IF NOT EXISTS workout_plans (
 -- TABELA: workout_logs
 -- ================================================
 CREATE TABLE IF NOT EXISTS workout_logs (
-  id               UUID         PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id               UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id          UUID         REFERENCES users(id) ON DELETE CASCADE,
   plan_id          UUID         REFERENCES workout_plans(id) ON DELETE SET NULL,
   plan_name        TEXT,
@@ -50,7 +47,7 @@ CREATE TABLE IF NOT EXISTS workout_logs (
 -- TABELA: body_records
 -- ================================================
 CREATE TABLE IF NOT EXISTS body_records (
-  id            UUID         PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id            UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id       UUID         REFERENCES users(id) ON DELETE CASCADE,
   weight_kg     DECIMAL(5,2),
   body_fat_pct  DECIMAL(4,1),
@@ -66,7 +63,7 @@ CREATE TABLE IF NOT EXISTS body_records (
 -- TABELA: water_logs
 -- ================================================
 CREATE TABLE IF NOT EXISTS water_logs (
-  id         UUID         PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id         UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id    UUID         REFERENCES users(id) ON DELETE CASCADE,
   amount_ml  INTEGER      NOT NULL CHECK (amount_ml > 0),
   logged_at  TIMESTAMPTZ  DEFAULT NOW()
@@ -76,7 +73,7 @@ CREATE TABLE IF NOT EXISTS water_logs (
 -- TABELA: daily_checklist
 -- ================================================
 CREATE TABLE IF NOT EXISTS daily_checklist (
-  id           UUID         PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id           UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id      UUID         REFERENCES users(id) ON DELETE CASCADE,
   item         TEXT         NOT NULL,
   is_completed BOOLEAN      DEFAULT FALSE,
@@ -89,7 +86,7 @@ CREATE TABLE IF NOT EXISTS daily_checklist (
 -- TABELA: points
 -- ================================================
 CREATE TABLE IF NOT EXISTS points (
-  id          UUID         PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id          UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id     UUID         REFERENCES users(id) ON DELETE CASCADE,
   action      TEXT         NOT NULL,
   description TEXT,
