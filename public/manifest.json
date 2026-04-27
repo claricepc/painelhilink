@@ -1,6 +1,7 @@
 {
-  "short_name": "FitDuo",
-  "name": "FitDuo - Treino em Dupla",
+  "short_name": "Registro",
+  "name": "Registro de Treino",
+  "description": "Treine. Registre. Evolua.",
   "icons": [
     {
       "src": "favicon.ico",
@@ -10,7 +11,7 @@
   ],
   "start_url": ".",
   "display": "standalone",
-  "theme_color": "#7c6ff7",
-  "background_color": "#0d0d13",
+  "theme_color": "#08090c",
+  "background_color": "#08090c",
   "orientation": "portrait"
 }

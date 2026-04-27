@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { supabase, isConfigured } from '../lib/supabase';
-import { Card, Spinner, Badge } from '../components/UI';
+import { Card, Spinner, NotConfigured } from '../components/UI';
+import { IconDumbbell, IconScale, IconDroplet, IconCheckSquare, IconSparkle } from '../components/Icons';
 
-const ACTION_LABELS = {
-  workout:     { label: 'Treino realizado',        icon: '🏋️', pts: 50 },
-  body_record: { label: 'Medição corporal',         icon: '📏', pts: 15 },
-  water_goal:  { label: 'Meta de água atingida',    icon: '💧', pts: 20 },
-  checklist:   { label: 'Hábito diário',            icon: '✅', pts: 10 },
+const ACTION_META = {
+  workout:     { label: 'Treino realizado',     pts: 50, Icon: IconDumbbell },
+  body_record: { label: 'Medição corporal',     pts: 15, Icon: IconScale },
+  water_goal:  { label: 'Meta de água',         pts: 20, Icon: IconDroplet },
+  checklist:   { label: 'Hábito do dia',        pts: 10, Icon: IconCheckSquare },
 };
 
 function fmtDate(iso) {
@@ -48,111 +49,112 @@ export default function RankingModule({ user, users }) {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
+  if (!isConfigured) return <NotConfigured title="Ranking" />;
+  if (loading) return <Spinner />;
+
   const ranked = Object.values(users)
     .map(u => ({ ...u, total: scores[u.id] || 0 }))
     .sort((a, b) => b.total - a.total);
 
   const leader = ranked[0];
   const second = ranked[1];
-  if (!isConfigured) {
-    return (
-      <div>
-        <div className="module-header"><h2 className="module-title">Ranking 🏆</h2></div>
-        <div className="error-banner">Configure as variáveis do Supabase para começar.</div>
-      </div>
-    );
-  }
-
-  if (loading) return <Spinner />;
 
   return (
     <div>
       <div className="module-header">
-        <h2 className="module-title">Ranking 🏆</h2>
+        <div>
+          <span className="module-sub">Disputa</span>
+          <h2 className="module-title"><span className="em">Ranking</span></h2>
+        </div>
       </div>
 
-      {/* Podium */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 24 }}>
+      <div className="podium-grid mb-16">
         <div className="podium-card podium-1">
-          <div style={{ position: 'absolute', top: 10, left: 10, fontSize: 20 }}>🥇</div>
+          <div className="podium-rank">1º · LÍDER</div>
           <div className="podium-emoji">{leader.emoji}</div>
           <div className="podium-name">{leader.name}</div>
-          <div className="podium-pts">{leader.total.toLocaleString('pt-BR')}</div>
-          <div style={{ fontSize: 12, color: 'var(--text-sub)', marginTop: 2 }}>pontos</div>
+          <div className="podium-pts">
+            {leader.total.toLocaleString('pt-BR')}
+            <span className="unit">PTS</span>
+          </div>
           {leader.id === user.id && (
-            <Badge color="var(--yellow)" style={{ marginTop: 8 }}>Você 🌟</Badge>
+            <div style={{ marginTop: 6, fontSize: 11, fontWeight: 800, letterSpacing: '0.1em' }}>
+              VOCÊ ESTÁ NA FRENTE
+            </div>
           )}
         </div>
 
         <div className="podium-card podium-2">
-          <div style={{ position: 'absolute', top: 10, left: 10, fontSize: 20 }}>🥈</div>
+          <div className="podium-rank">2º</div>
           <div className="podium-emoji">{second.emoji}</div>
           <div className="podium-name">{second.name}</div>
-          <div style={{ fontSize: 24, fontWeight: 800, color: 'var(--text-sub)' }}>
+          <div className="podium-pts text-sub">
             {second.total.toLocaleString('pt-BR')}
+            <span className="unit">PTS</span>
           </div>
-          <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>pontos</div>
           {second.id === user.id && (
-            <Badge color="var(--text-sub)" style={{ marginTop: 8 }}>Você</Badge>
+            <div className="text-mute" style={{ marginTop: 6, fontSize: 11, fontWeight: 800, letterSpacing: '0.1em' }}>
+              VOCÊ ESTÁ AQUI
+            </div>
           )}
         </div>
       </div>
 
-      {/* Gap */}
-      <Card variant="subtle" style={{ textAlign: 'center', marginBottom: 20, padding: '12px' }}>
+      <Card variant="subtle" className="mb-16" style={{ textAlign: 'center' }}>
         {leader.id === user.id ? (
-          <span style={{ color: 'var(--teal)', fontWeight: 600 }}>
-            🔥 Você está na frente por {(leader.total - second.total).toLocaleString('pt-BR')} pontos!
+          <span style={{ color: 'var(--primary)', fontWeight: 700 }}>
+            🔥 Na frente por {(leader.total - second.total).toLocaleString('pt-BR')} pontos
           </span>
+        ) : leader.total === second.total ? (
+          <span className="text-sub text-bold">Empate técnico! Vai com tudo!</span>
         ) : (
-          <span style={{ color: 'var(--coral)', fontWeight: 600 }}>
-            💪 Você está a {(leader.total - second.total).toLocaleString('pt-BR')} pontos de virar o jogo!
+          <span style={{ color: 'var(--orange)', fontWeight: 700 }}>
+            💪 {(leader.total - second.total).toLocaleString('pt-BR')} pts pra virar o jogo
           </span>
         )}
       </Card>
 
-      {/* Como ganhar pontos */}
-      <p className="section-title">Como Ganhar Pontos</p>
-      <Card style={{ marginBottom: 20 }}>
-        {Object.values(ACTION_LABELS).map(a => (
-          <div key={a.label} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid var(--border)' }}>
-            <span style={{ fontSize: 14 }}>{a.icon} {a.label}</span>
-            <span style={{ color: 'var(--yellow)', fontWeight: 700, fontSize: 14 }}>+{a.pts}pts</span>
+      <p className="section-title">Como ganhar pontos</p>
+      <div className="col gap-8 mb-16">
+        {Object.entries(ACTION_META).map(([key, m]) => (
+          <div key={key} className="rt-card stat-card" style={{ padding: '12px 14px' }}>
+            <div className="stat-icon"><m.Icon /></div>
+            <div className="flex-1">
+              <div className="text-bold" style={{ fontSize: 14 }}>{m.label}</div>
+            </div>
+            <div className="text-bold" style={{ color: 'var(--primary)' }}>+{m.pts} pts</div>
           </div>
         ))}
-        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0' }}>
-          <span style={{ fontSize: 14 }}>✅ Cada hábito do checklist</span>
-          <span style={{ color: 'var(--yellow)', fontWeight: 700, fontSize: 14 }}>+10pts</span>
-        </div>
-      </Card>
+      </div>
 
-      {/* Recent activity */}
       {activity.length > 0 && (
         <>
-          <p className="section-title">Atividade Recente</p>
-          <Card>
+          <p className="section-title">Atividade recente</p>
+          <div className="col gap-8">
             {activity.map(a => {
               const actUser = Object.values(users).find(u => u.id === a.user_id);
-              const meta = ACTION_LABELS[a.action] || { icon: '⭐', label: a.action };
+              const meta = ACTION_META[a.action] || { label: a.description || a.action, Icon: IconSparkle };
+              const Icon = meta.Icon;
               return (
-                <div key={a.id} className="activity-item">
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <span style={{ fontSize: 18 }}>{meta.icon}</span>
-                    <div>
-                      <div style={{ fontSize: 14, fontWeight: 600 }}>
-                        {actUser?.name || '?'}
-                        <span style={{ color: 'var(--text-sub)', fontWeight: 400 }}> — {a.description || meta.label}</span>
-                      </div>
-                      <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{fmtDate(a.earned_at)}</div>
+                <div key={a.id} className="activity-row">
+                  <div className="row gap-12" style={{ flex: 1, minWidth: 0 }}>
+                    <div className="stat-icon" style={{ width: 36, height: 36, borderRadius: 10 }}>
+                      <Icon width="18" height="18" />
+                    </div>
+                    <div className="activity-meta" style={{ minWidth: 0 }}>
+                      <span className="who">{actUser?.name || '?'}</span>
+                      <span className="what" style={{
+                        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                      }}>
+                        {a.description || meta.label} · {fmtDate(a.earned_at)}
+                      </span>
                     </div>
                   </div>
-                  <span style={{ color: 'var(--yellow)', fontWeight: 700, fontSize: 14, flexShrink: 0 }}>
-                    +{a.points}pts
-                  </span>
+                  <span className="activity-pts">+{a.points}</span>
                 </div>
               );
             })}
-          </Card>
+          </div>
         </>
       )}
     </div>

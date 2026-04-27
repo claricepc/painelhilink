@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { supabase, isConfigured } from '../lib/supabase';
-import { Card, Button, Input, Textarea, EmptyState, Spinner } from '../components/UI';
+import { Card, Button, Input, Textarea, EmptyState, Spinner, NotConfigured, Badge } from '../components/UI';
+import { IconDumbbell, IconPlus, IconClock, IconCalendar, IconCheck } from '../components/Icons';
 
 export default function WorkoutsModule({ user }) {
   const [plans, setPlans] = useState([]);
@@ -87,114 +88,133 @@ export default function WorkoutsModule({ user }) {
     return new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
   }
 
-  if (!isConfigured) {
-    return (
-      <div>
-        <div className="module-header"><h2 className="module-title">Treinos 🏋️</h2></div>
-        <div className="error-banner">Configure as variáveis do Supabase para começar.</div>
-      </div>
-    );
-  }
-
+  if (!isConfigured) return <NotConfigured title="Treinos" />;
   if (loading) return <Spinner />;
 
   return (
     <div>
       <div className="module-header">
-        <h2 className="module-title">Treinos 🏋️</h2>
+        <div>
+          <span className="module-sub">Hoje</span>
+          <h2 className="module-title">Seus <span className="em">treinos</span></h2>
+        </div>
         <div style={{ display: 'flex', gap: 8 }}>
-          <Button size="sm" variant="secondary" onClick={() => setShowLogForm(true)}>+ Registrar</Button>
-          <Button size="sm" onClick={() => setShowPlanForm(true)}>+ Plano</Button>
+          <Button size="sm" variant="secondary" onClick={() => setShowLogForm(s => !s)}>
+            <IconCheck width="14" height="14" /> Registrar
+          </Button>
+          <Button size="sm" onClick={() => setShowPlanForm(s => !s)}>
+            <IconPlus width="14" height="14" /> Plano
+          </Button>
         </div>
       </div>
 
       {showPlanForm && (
-        <Card style={{ marginBottom: 16 }}>
-          <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 12 }}>Novo Plano</div>
+        <Card className="mb-16" variant="elevated">
+          <div className="text-bold mb-12" style={{ fontSize: 16 }}>Novo plano</div>
           <Input
             placeholder="Nome do plano *"
             value={planForm.name}
             onChange={e => setPlanForm(p => ({ ...p, name: e.target.value }))}
           />
+          <div className="mt-8" />
           <Input
             placeholder="Descrição (opcional)"
             value={planForm.description}
             onChange={e => setPlanForm(p => ({ ...p, description: e.target.value }))}
-            style={{ marginTop: 8 }}
           />
+          <div className="mt-8" />
           <Textarea
             placeholder={"Exercícios (um por linha):\nAgachamento\nSupino\nRemada"}
             value={planForm.exercises}
             onChange={e => setPlanForm(p => ({ ...p, exercises: e.target.value }))}
-            style={{ marginTop: 8 }}
             rows={5}
           />
-          <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-            <Button variant="ghost" onClick={() => setShowPlanForm(false)} style={{ flex: 1 }}>Cancelar</Button>
-            <Button onClick={addPlan} disabled={saving} style={{ flex: 1 }}>
-              {saving ? 'Salvando…' : 'Salvar Plano'}
+          <div className="row mt-12 gap-8">
+            <Button variant="ghost" onClick={() => setShowPlanForm(false)} block>Cancelar</Button>
+            <Button onClick={addPlan} disabled={saving} block>
+              {saving ? 'Salvando…' : 'Salvar plano'}
             </Button>
           </div>
         </Card>
       )}
 
       {showLogForm && (
-        <Card style={{ marginBottom: 16 }}>
-          <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 12 }}>Registrar Treino · +50pts</div>
-          <div style={{ fontSize: 13, color: 'var(--text-sub)', marginBottom: 8 }}>Plano utilizado</div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
-            <button className={`plan-chip${!selectedPlan ? ' active' : ''}`} onClick={() => setSelectedPlan(null)}>
+        <Card className="mb-16" variant="elevated">
+          <div className="row-between mb-12">
+            <div className="text-bold" style={{ fontSize: 16 }}>Registrar treino</div>
+            <Badge>+50 pts</Badge>
+          </div>
+
+          <label className="input-label">Plano utilizado</label>
+          <div className="row gap-6 mb-12" style={{ flexWrap: 'wrap' }}>
+            <button
+              className={`chip${!selectedPlan ? ' active' : ''}`}
+              onClick={() => setSelectedPlan(null)}
+            >
               Livre
             </button>
             {plans.map(p => (
               <button
                 key={p.id}
-                className={`plan-chip${selectedPlan?.id === p.id ? ' active' : ''}`}
+                className={`chip${selectedPlan?.id === p.id ? ' active' : ''}`}
                 onClick={() => setSelectedPlan(p)}
               >
                 {p.name}
               </button>
             ))}
           </div>
+
           <Input
+            label="Duração (minutos)"
             type="number"
-            placeholder="Duração (minutos)"
             value={logForm.duration_minutes}
             onChange={e => setLogForm(p => ({ ...p, duration_minutes: e.target.value }))}
           />
+          <div className="mt-8" />
           <Textarea
-            placeholder="Observações (opcional)"
+            label="Observações"
+            placeholder="Como foi o treino?"
             value={logForm.notes}
             onChange={e => setLogForm(p => ({ ...p, notes: e.target.value }))}
-            style={{ marginTop: 8 }}
             rows={3}
           />
-          <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-            <Button variant="ghost" onClick={() => setShowLogForm(false)} style={{ flex: 1 }}>Cancelar</Button>
-            <Button onClick={logWorkout} disabled={saving} style={{ flex: 1 }}>
-              {saving ? 'Salvando…' : '✅ Registrar'}
+          <div className="row mt-12 gap-8">
+            <Button variant="ghost" onClick={() => setShowLogForm(false)} block>Cancelar</Button>
+            <Button onClick={logWorkout} disabled={saving} block>
+              {saving ? 'Salvando…' : 'Registrar treino'}
             </Button>
           </div>
         </Card>
       )}
 
-      <p className="section-title">Meus Planos ({plans.length})</p>
+      <p className="section-title">Meus planos · {plans.length}</p>
       {plans.length === 0 ? (
-        <EmptyState icon="🏋️" message="Nenhum plano criado" action="Crie seu primeiro plano de treino" />
+        <EmptyState
+          icon={<IconDumbbell />}
+          message="Nenhum plano criado"
+          action="Crie seu primeiro plano de treino"
+        />
       ) : (
         plans.map(plan => (
-          <Card key={plan.id} style={{ marginBottom: 10 }}>
-            <div style={{ fontWeight: 700, fontSize: 16 }}>{plan.name}</div>
-            {plan.description && (
-              <div style={{ color: 'var(--text-sub)', fontSize: 13, marginTop: 2 }}>{plan.description}</div>
-            )}
+          <Card key={plan.id} className="mb-8">
+            <div className="row-between">
+              <div className="flex-1" style={{ minWidth: 0 }}>
+                <div className="text-bold" style={{ fontSize: 16 }}>{plan.name}</div>
+                {plan.description && (
+                  <div className="text-sub text-sm mt-8" style={{ marginTop: 2 }}>{plan.description}</div>
+                )}
+              </div>
+              {Array.isArray(plan.exercises) && plan.exercises.length > 0 && (
+                <Badge>{plan.exercises.length} exerc.</Badge>
+              )}
+            </div>
             {Array.isArray(plan.exercises) && plan.exercises.length > 0 && (
-              <div style={{ marginTop: 10, display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+              <div className="row mt-12 gap-6" style={{ flexWrap: 'wrap' }}>
                 {plan.exercises.slice(0, 5).map((ex, i) => (
-                  <span key={i} className="exercise-chip">{ex}</span>
+                  <span key={i} className="tag">{ex}</span>
                 ))}
                 {plan.exercises.length > 5 && (
-                  <span className="exercise-chip">+{plan.exercises.length - 5} mais</span>
+                  <span className="tag">+{plan.exercises.length - 5}</span>
                 )}
               </div>
             )}
@@ -202,23 +222,30 @@ export default function WorkoutsModule({ user }) {
         ))
       )}
 
-      <p className="section-title">Histórico Recente</p>
+      <p className="section-title">Histórico recente</p>
       {logs.length === 0 ? (
-        <EmptyState icon="📅" message="Nenhum treino registrado" action="Registre sua primeira sessão" />
+        <EmptyState
+          icon={<IconCalendar />}
+          message="Nenhum treino registrado"
+          action="Registre sua primeira sessão"
+        />
       ) : (
         logs.map(log => (
-          <Card key={log.id} variant="subtle" style={{ marginBottom: 8 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div>
-                <div style={{ fontWeight: 600, fontSize: 15 }}>{log.plan_name || 'Treino livre'}</div>
+          <Card key={log.id} className="mb-8" variant="subtle">
+            <div className="row-between">
+              <div className="flex-1" style={{ minWidth: 0 }}>
+                <div className="text-bold" style={{ fontSize: 15 }}>{log.plan_name || 'Treino livre'}</div>
                 {log.notes && (
-                  <div style={{ color: 'var(--text-sub)', fontSize: 13, marginTop: 2 }}>{log.notes}</div>
+                  <div className="text-sub text-sm" style={{ marginTop: 2 }}>{log.notes}</div>
                 )}
               </div>
               <div style={{ textAlign: 'right', flexShrink: 0, marginLeft: 12 }}>
-                <div style={{ color: 'var(--text-sub)', fontSize: 13 }}>{fmtDate(log.logged_at)}</div>
+                <div className="text-mute text-xs" style={{ fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+                  {fmtDate(log.logged_at)}
+                </div>
                 {log.duration_minutes && (
-                  <div style={{ color: 'var(--primary)', fontSize: 13, fontWeight: 700 }}>
+                  <div className="row gap-6" style={{ justifyContent: 'flex-end', color: 'var(--primary)', fontWeight: 800, fontSize: 13, marginTop: 2 }}>
+                    <IconClock width="13" height="13" />
                     {log.duration_minutes}min
                   </div>
                 )}

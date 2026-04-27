@@ -4,23 +4,36 @@ import EvolutionModule from './modules/EvolutionModule';
 import WaterModule from './modules/WaterModule';
 import ChecklistModule from './modules/ChecklistModule';
 import RankingModule from './modules/RankingModule';
+import {
+  IconDumbbell,
+  IconChart,
+  IconDroplet,
+  IconCheckSquare,
+  IconTrophy,
+  IconLogout,
+  IconLogo,
+} from './components/Icons';
 import './index.css';
 
 const USERS = {
-  rafael: { id: '11111111-1111-1111-1111-111111111111', name: 'Rafael', emoji: '🦁', color: '#7c6ff7' },
-  clarice: { id: '22222222-2222-2222-2222-222222222222', name: 'Clarice', emoji: '🌸', color: '#ff6b6b' },
+  rafael:  { id: '11111111-1111-1111-1111-111111111111', name: 'Rafael',  emoji: '🦁', color: '#c5ff3d' },
+  clarice: { id: '22222222-2222-2222-2222-222222222222', name: 'Clarice', emoji: '🌸', color: '#ff7aa7' },
 };
 
 const TABS = [
-  { id: 'workouts',  label: 'Treinos',   icon: '🏋️' },
-  { id: 'evolution', label: 'Evolução',  icon: '📊' },
-  { id: 'water',     label: 'Água',      icon: '💧' },
-  { id: 'checklist', label: 'Checklist', icon: '✅' },
-  { id: 'ranking',   label: 'Ranking',   icon: '🏆' },
+  { id: 'workouts',  label: 'Treinos',   Icon: IconDumbbell },
+  { id: 'evolution', label: 'Evolução',  Icon: IconChart },
+  { id: 'water',     label: 'Água',      Icon: IconDroplet },
+  { id: 'checklist', label: 'Hábitos',   Icon: IconCheckSquare },
+  { id: 'ranking',   label: 'Ranking',   Icon: IconTrophy },
 ];
 
+const STORAGE_KEY = 'rt_user';
+
 export default function App() {
-  const [userId, setUserId] = useState(() => localStorage.getItem('fitduo_user'));
+  const [userId, setUserId] = useState(() =>
+    localStorage.getItem(STORAGE_KEY) || localStorage.getItem('fitduo_user')
+  );
   const [activeTab, setActiveTab] = useState('workouts');
 
   const user = userId ? USERS[userId] : null;
@@ -28,26 +41,37 @@ export default function App() {
   if (!user) {
     return (
       <div className="user-select-screen">
-        <div className="logo">
-          <div className="logo-icon">💪</div>
-          <h1>FitDuo</h1>
-          <p>Quem está treinando hoje?</p>
+        <div className="brand-block">
+          <div className="brand-mark">
+            <IconLogo width="56" height="56" />
+          </div>
+          <h1 className="brand-title">
+            REGISTRO <span className="accent">DE TREINO</span>
+          </h1>
+          <div className="brand-tagline">
+            Treine <span className="dot">·</span> Registre <span className="dot">·</span> Evolua
+          </div>
         </div>
-        <div className="user-cards">
-          {Object.entries(USERS).map(([key, u]) => (
-            <button
-              key={key}
-              className="user-card"
-              style={{ '--user-color': u.color }}
-              onClick={() => {
-                localStorage.setItem('fitduo_user', key);
-                setUserId(key);
-              }}
-            >
-              <span className="user-emoji">{u.emoji}</span>
-              <span className="user-name">{u.name}</span>
-            </button>
-          ))}
+
+        <div className="welcome-cta">
+          <div className="welcome-cta-title">Quem está treinando agora?</div>
+          <div className="user-cards">
+            {Object.entries(USERS).map(([key, u]) => (
+              <button
+                key={key}
+                className="user-card"
+                style={{ '--user-color': u.color }}
+                onClick={() => {
+                  localStorage.setItem(STORAGE_KEY, key);
+                  setUserId(key);
+                }}
+              >
+                <span className="user-emoji">{u.emoji}</span>
+                <span className="user-name">{u.name}</span>
+                <span className="user-sub">Entrar</span>
+              </button>
+            ))}
+          </div>
         </div>
       </div>
     );
@@ -57,17 +81,22 @@ export default function App() {
     <div className="app">
       <header className="app-header">
         <div className="header-user" style={{ '--user-color': user.color }}>
-          <span>{user.emoji}</span>
-          <span>{user.name}</span>
+          <div className="header-avatar">{user.emoji}</div>
+          <div className="header-name">
+            <span className="greet">Olá,</span>
+            <span className="name">{user.name}</span>
+          </div>
         </div>
         <button
-          className="switch-user-btn"
+          className="icon-btn"
+          aria-label="Trocar usuário"
           onClick={() => {
+            localStorage.removeItem(STORAGE_KEY);
             localStorage.removeItem('fitduo_user');
             setUserId(null);
           }}
         >
-          Trocar
+          <IconLogout />
         </button>
       </header>
 
@@ -80,14 +109,15 @@ export default function App() {
       </main>
 
       <nav className="bottom-nav">
-        {TABS.map(tab => (
+        {TABS.map(({ id, label, Icon }) => (
           <button
-            key={tab.id}
-            className={`nav-tab${activeTab === tab.id ? ' active' : ''}`}
-            onClick={() => setActiveTab(tab.id)}
+            key={id}
+            className={`nav-tab${activeTab === id ? ' active' : ''}`}
+            onClick={() => setActiveTab(id)}
+            aria-label={label}
           >
-            <span className="tab-icon">{tab.icon}</span>
-            <span className="tab-label">{tab.label}</span>
+            <Icon />
+            <span className="tab-label">{label}</span>
           </button>
         ))}
       </nav>

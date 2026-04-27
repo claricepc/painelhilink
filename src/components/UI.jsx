@@ -1,140 +1,82 @@
 import React from 'react';
+import { IconAlert } from './Icons';
 
-export function Card({ children, style, variant }) {
-  const base = {
-    background: variant === 'subtle' ? 'var(--surface)' : 'var(--card)',
-    border: '1px solid var(--border)',
-    borderRadius: 'var(--radius)',
-    padding: '14px 16px',
-  };
-  return <div style={{ ...base, ...style }}>{children}</div>;
+export function Card({ children, variant = 'default', style, className = '', onClick }) {
+  const cls = `rt-card ${variant !== 'default' ? variant : ''} ${className}`.trim();
+  return (
+    <div className={cls} style={style} onClick={onClick}>
+      {children}
+    </div>
+  );
 }
 
-export function Button({ children, onClick, variant = 'primary', size = 'md', disabled, style }) {
-  const base = {
-    borderRadius: 'var(--radius-sm)',
-    fontWeight: 700,
-    cursor: disabled ? 'not-allowed' : 'pointer',
-    border: 'none',
-    transition: 'all var(--transition)',
-    opacity: disabled ? 0.5 : 1,
-    fontSize: size === 'sm' ? 13 : 15,
-    padding: size === 'sm' ? '7px 14px' : '11px 20px',
-    display: 'inline-flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-  };
-  const variants = {
-    primary: {
-      background: 'var(--primary)',
-      color: '#fff',
-    },
-    secondary: {
-      background: 'var(--surface)',
-      border: '1px solid var(--border)',
-      color: 'var(--text-sub)',
-    },
-    ghost: {
-      background: 'transparent',
-      border: '1px solid var(--border)',
-      color: 'var(--text-sub)',
-    },
-    danger: {
-      background: 'color-mix(in srgb, var(--coral) 20%, transparent)',
-      border: '1px solid color-mix(in srgb, var(--coral) 35%, transparent)',
-      color: 'var(--coral)',
-    },
-    success: {
-      background: 'color-mix(in srgb, var(--green) 20%, transparent)',
-      border: '1px solid color-mix(in srgb, var(--green) 35%, transparent)',
-      color: 'var(--green)',
-    },
-  };
+export function Button({
+  children,
+  onClick,
+  variant = 'primary',
+  size = 'md',
+  disabled,
+  block,
+  type = 'button',
+  style,
+}) {
+  const cls = [
+    'rt-btn',
+    variant,
+    size === 'sm' && 'size-sm',
+    size === 'lg' && 'size-lg',
+    block && 'rt-btn-block',
+  ].filter(Boolean).join(' ');
+
   return (
     <button
+      type={type}
       onClick={disabled ? undefined : onClick}
-      style={{ ...base, ...variants[variant], ...style }}
+      disabled={disabled}
+      className={cls}
+      style={style}
     >
       {children}
     </button>
   );
 }
 
-export function Input({ style, ...props }) {
+export function Input({ label, style, ...props }) {
   return (
-    <input
-      style={{
-        width: '100%',
-        background: 'var(--surface)',
-        border: '1px solid var(--border)',
-        borderRadius: 'var(--radius-sm)',
-        color: 'var(--text)',
-        fontSize: 15,
-        padding: '10px 12px',
-        outline: 'none',
-        ...style,
-      }}
-      {...props}
-    />
+    <div style={{ width: '100%' }}>
+      {label && <label className="input-label">{label}</label>}
+      <input className="rt-input" style={style} {...props} />
+    </div>
   );
 }
 
-export function Textarea({ style, rows = 3, ...props }) {
+export function Textarea({ label, style, rows = 3, ...props }) {
   return (
-    <textarea
-      rows={rows}
-      style={{
-        width: '100%',
-        background: 'var(--surface)',
-        border: '1px solid var(--border)',
-        borderRadius: 'var(--radius-sm)',
-        color: 'var(--text)',
-        fontSize: 15,
-        padding: '10px 12px',
-        outline: 'none',
-        resize: 'vertical',
-        fontFamily: 'inherit',
-        ...style,
-      }}
-      {...props}
-    />
+    <div style={{ width: '100%' }}>
+      {label && <label className="input-label">{label}</label>}
+      <textarea className="rt-textarea" rows={rows} style={style} {...props} />
+    </div>
   );
 }
 
-export function Select({ children, style, ...props }) {
+export function Select({ label, children, style, ...props }) {
   return (
-    <select
-      style={{
-        width: '100%',
-        background: 'var(--surface)',
-        border: '1px solid var(--border)',
-        borderRadius: 'var(--radius-sm)',
-        color: 'var(--text)',
-        fontSize: 15,
-        padding: '10px 12px',
-        outline: 'none',
-        ...style,
-      }}
-      {...props}
-    >
-      {children}
-    </select>
+    <div style={{ width: '100%' }}>
+      {label && <label className="input-label">{label}</label>}
+      <select className="rt-select" style={style} {...props}>
+        {children}
+      </select>
+    </div>
   );
 }
 
-export function ProgressBar({ value, max, color = 'var(--primary)', style }) {
-  const pct = Math.min(100, Math.round((value / max) * 100));
+export function ProgressBar({ value, max, color, style }) {
+  const pct = Math.min(100, Math.round((value / Math.max(1, max)) * 100));
   return (
-    <div style={{ background: 'var(--border)', borderRadius: 99, height: 10, overflow: 'hidden', ...style }}>
+    <div className="rt-progress" style={style}>
       <div
-        style={{
-          height: '100%',
-          width: `${pct}%`,
-          background: color,
-          borderRadius: 99,
-          transition: 'width 0.4s ease',
-        }}
+        className="rt-progress-fill"
+        style={{ width: `${pct}%`, ...(color ? { background: color } : {}) }}
       />
     </div>
   );
@@ -142,46 +84,55 @@ export function ProgressBar({ value, max, color = 'var(--primary)', style }) {
 
 export function Spinner() {
   return (
-    <div style={{ display: 'flex', justifyContent: 'center', padding: 48 }}>
-      <div
-        style={{
-          width: 36,
-          height: 36,
-          border: '3px solid var(--border)',
-          borderTop: '3px solid var(--primary)',
-          borderRadius: '50%',
-          animation: 'spin 0.8s linear infinite',
-        }}
-      />
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+    <div className="spinner-wrap">
+      <div className="spinner" />
     </div>
   );
 }
 
 export function EmptyState({ icon, message, action }) {
   return (
-    <div style={{ textAlign: 'center', padding: '32px 16px', color: 'var(--text-muted)' }}>
-      <div style={{ fontSize: 40, marginBottom: 10 }}>{icon}</div>
-      <div style={{ fontWeight: 600, marginBottom: 4 }}>{message}</div>
-      {action && <div style={{ fontSize: 13 }}>{action}</div>}
+    <div className="empty-state">
+      <div className="empty-icon">{icon}</div>
+      <div className="empty-msg">{message}</div>
+      {action && <div className="empty-action">{action}</div>}
     </div>
   );
 }
 
-export function Badge({ children, color = 'var(--primary)' }) {
+export function Badge({ children, variant }) {
+  const cls = `tag ${variant || ''}`.trim();
+  return <span className={cls}>{children}</span>;
+}
+
+export function NotConfigured({ title }) {
   return (
-    <span
-      style={{
-        background: `color-mix(in srgb, ${color} 18%, transparent)`,
-        border: `1px solid color-mix(in srgb, ${color} 35%, transparent)`,
-        color,
-        padding: '2px 10px',
-        borderRadius: 99,
-        fontSize: 12,
-        fontWeight: 700,
-      }}
-    >
-      {children}
-    </span>
+    <div>
+      <div className="module-header">
+        <h2 className="module-title">{title}</h2>
+      </div>
+      <div className="warn-banner">
+        <IconAlert />
+        <div>
+          <strong>Banco de dados não configurado</strong>
+          Configure as variáveis do Supabase para começar a registrar seus dados.
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function StatCard({ icon, label, value, unit, accent = 'default' }) {
+  return (
+    <div className="rt-card stat-card">
+      <div className={`stat-icon ${accent}`}>{icon}</div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div className="stat-label">{label}</div>
+        <div className="stat-value">
+          {value}
+          {unit && <span className="unit">{unit}</span>}
+        </div>
+      </div>
+    </div>
   );
 }

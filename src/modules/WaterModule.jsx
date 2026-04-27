@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { supabase, isConfigured } from '../lib/supabase';
-import { Card, ProgressBar, Spinner } from '../components/UI';
+import { Spinner, NotConfigured } from '../components/UI';
+import { IconDroplet } from '../components/Icons';
 
 const DAILY_GOAL_ML = 2500;
-const QUICK_ADD = [200, 300, 500, 750];
+const QUICK_ADD = [200, 300, 500];
 
 function todayStart() {
   const d = new Date();
@@ -67,67 +68,40 @@ export default function WaterModule({ user }) {
     return new Date(iso).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
   }
 
-  if (!isConfigured) {
-    return (
-      <div>
-        <div className="module-header"><h2 className="module-title">Água 💧</h2></div>
-        <div className="error-banner">Configure as variáveis do Supabase para começar.</div>
-      </div>
-    );
-  }
-
+  if (!isConfigured) return <NotConfigured title="Hidratação" />;
   if (loading) return <Spinner />;
 
   return (
     <div>
       <div className="module-header">
-        <h2 className="module-title">Água 💧</h2>
+        <div>
+          <span className="module-sub">Hoje</span>
+          <h2 className="module-title"><span className="em">Hidratação</span></h2>
+        </div>
       </div>
 
       {goalReached && (
-        <div style={{
-          background: 'color-mix(in srgb, var(--teal) 20%, var(--card))',
-          border: '1px solid color-mix(in srgb, var(--teal) 40%, transparent)',
-          borderRadius: 'var(--radius)',
-          padding: '12px 16px',
-          marginBottom: 16,
-          textAlign: 'center',
-          color: 'var(--teal)',
-          fontWeight: 700,
-        }}>
-          🎉 Meta diária atingida! +20 pontos
+        <div className="rt-card accent mb-16" style={{ textAlign: 'center', fontWeight: 800 }}>
+          🎉 Meta diária atingida! +20 pts
         </div>
       )}
 
-      {/* Progress card */}
-      <Card style={{ marginBottom: 20, textAlign: 'center', padding: '24px 20px' }}>
-        <div style={{
-          fontSize: 56,
-          fontWeight: 900,
-          color: pct >= 100 ? 'var(--teal)' : 'var(--blue)',
-          lineHeight: 1,
-          marginBottom: 4,
-        }}>
-          {(total / 1000).toFixed(2).replace('.', ',')}L
+      <div className="water-progress-card mb-16">
+        <div className="label">Total consumido</div>
+        <div className="value">
+          {(total / 1000).toFixed(2).replace('.', ',')}
+          <span className="unit">L</span>
         </div>
-        <div style={{ color: 'var(--text-sub)', fontSize: 14, marginBottom: 16 }}>
-          de {(DAILY_GOAL_ML / 1000).toFixed(1).replace('.', ',')}L — {pct}%
+        <div className="goal">
+          de {(DAILY_GOAL_ML / 1000).toFixed(1).replace('.', ',')}L · {pct}%
         </div>
-        <ProgressBar
-          value={total}
-          max={DAILY_GOAL_ML}
-          color={pct >= 100 ? 'var(--teal)' : 'var(--blue)'}
-        />
-        {pct >= 100 && (
-          <div style={{ marginTop: 10, color: 'var(--teal)', fontSize: 14, fontWeight: 600 }}>
-            ✅ Meta atingida hoje!
-          </div>
-        )}
-      </Card>
+        <div className="water-progress-track">
+          <div className="water-progress-fill" style={{ width: `${pct}%` }} />
+        </div>
+      </div>
 
-      {/* Quick add buttons */}
-      <p className="section-title">Adicionar Água</p>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: 24 }}>
+      <p className="section-title">Adicionar rapidamente</p>
+      <div className="water-grid">
         {QUICK_ADD.map(ml => (
           <button
             key={ml}
@@ -135,26 +109,29 @@ export default function WaterModule({ user }) {
             onClick={() => addWater(ml)}
             disabled={adding}
           >
-            +{ml >= 1000 ? `${ml / 1000}L` : `${ml}ml`}
+            <IconDroplet />
+            <span>+{ml}ml</span>
           </button>
         ))}
       </div>
 
-      {/* Today's log */}
       {entries.length > 0 && (
         <>
-          <p className="section-title">Registro de Hoje ({entries.length} entradas)</p>
-          <Card variant="subtle">
+          <p className="section-title">Registro de hoje · {entries.length}</p>
+          <div className="rt-card subtle">
             {entries.map((e, i) => (
               <div key={e.id}>
-                {i > 0 && <div style={{ height: 1, background: 'var(--border)', margin: '6px 0' }} />}
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0' }}>
-                  <span style={{ color: 'var(--blue)', fontWeight: 600 }}>+{e.amount_ml}ml</span>
-                  <span style={{ color: 'var(--text-muted)', fontSize: 13 }}>{fmtTime(e.logged_at)}</span>
+                {i > 0 && <div style={{ height: 1, background: 'var(--border)', margin: '8px 0' }} />}
+                <div className="row-between" style={{ padding: '4px 0' }}>
+                  <span className="row gap-8" style={{ color: 'var(--blue)', fontWeight: 700 }}>
+                    <IconDroplet width="14" height="14" />
+                    +{e.amount_ml}ml
+                  </span>
+                  <span className="text-mute text-sm">{fmtTime(e.logged_at)}</span>
                 </div>
               </div>
             ))}
-          </Card>
+          </div>
         </>
       )}
     </div>
