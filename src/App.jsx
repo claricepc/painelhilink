@@ -4,6 +4,7 @@ import EvolutionModule from './modules/EvolutionModule';
 import WaterModule from './modules/WaterModule';
 import ChecklistModule from './modules/ChecklistModule';
 import RankingModule from './modules/RankingModule';
+import FinancialModule from './modules/FinancialModule';
 import {
   IconDumbbell,
   IconChart,
@@ -12,6 +13,7 @@ import {
   IconTrophy,
   IconLogout,
   IconLogo,
+  IconWallet,
 } from './components/Icons';
 import './index.css';
 
@@ -21,11 +23,12 @@ const USERS = {
 };
 
 const TABS = [
-  { id: 'workouts',  label: 'Treinos',   Icon: IconDumbbell },
-  { id: 'evolution', label: 'Evolução',  Icon: IconChart },
-  { id: 'water',     label: 'Água',      Icon: IconDroplet },
-  { id: 'checklist', label: 'Hábitos',   Icon: IconCheckSquare },
-  { id: 'ranking',   label: 'Ranking',   Icon: IconTrophy },
+  { id: 'workouts',   label: 'Treinos',     Icon: IconDumbbell },
+  { id: 'evolution',  label: 'Evolução',    Icon: IconChart },
+  { id: 'water',      label: 'Água',        Icon: IconDroplet },
+  { id: 'checklist',  label: 'Hábitos',     Icon: IconCheckSquare },
+  { id: 'ranking',    label: 'Ranking',     Icon: IconTrophy },
+  { id: 'financial',  label: 'Financeiro',  Icon: IconWallet },
 ];
 
 const STORAGE_KEY = 'rt_user';
@@ -106,6 +109,7 @@ export default function App() {
         {activeTab === 'water'     && <WaterModule user={user} />}
         {activeTab === 'checklist' && <ChecklistModule user={user} />}
         {activeTab === 'ranking'   && <RankingModule user={user} users={USERS} />}
+        {activeTab === 'financial' && <FinancialModule />}
       </main>
 
       <nav className="bottom-nav">

@@ -130,6 +130,60 @@ export const IconAlert = make(
   </>
 );
 
+export const IconWallet = make(
+  <>
+    <rect x="2" y="7" width="20" height="14" rx="3" />
+    <path d="M16 14a1 1 0 1 0 2 0 1 1 0 0 0-2 0z" fill="currentColor" />
+    <path d="M2 10h20" />
+    <path d="M6 3l4-1 4 1 4-1" />
+  </>
+);
+
+export const IconArrowUpCircle = make(
+  <>
+    <circle cx="12" cy="12" r="9" />
+    <path d="M12 16V8" />
+    <path d="M8 12l4-4 4 4" />
+  </>
+);
+
+export const IconArrowDownCircle = make(
+  <>
+    <circle cx="12" cy="12" r="9" />
+    <path d="M12 8v8" />
+    <path d="M8 12l4 4 4-4" />
+  </>
+);
+
+export const IconUsers = make(
+  <>
+    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+    <circle cx="9" cy="7" r="4" />
+    <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+    <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+  </>
+);
+
+export const IconFlag = make(
+  <>
+    <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" />
+    <line x1="4" y1="22" x2="4" y2="15" />
+  </>
+);
+
+export const IconBank = make(
+  <>
+    <path d="M3 21h18" />
+    <path d="M3 10h18" />
+    <path d="M5 6l7-3 7 3" />
+    <path d="M4 10v11" />
+    <path d="M20 10v11" />
+    <path d="M8 14v3" />
+    <path d="M12 14v3" />
+    <path d="M16 14v3" />
+  </>
+);
+
 export const IconLogo = (props) => (
   <svg {...props} viewBox="0 0 64 64" fill="none">
     <path
